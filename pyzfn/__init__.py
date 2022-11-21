@@ -2,17 +2,14 @@ import os
 from pathlib import Path
 import shutil
 
-import numpy as np
+# import numpy as np
 import zarr
 
 
 def op(path):
     if not os.path.exists(path):
         raise FileNotFoundError(f"Path Not Found : '{path}'")
-    if "ssh://" in path:
-        return Group(zarr.storage.FSStore(path))
-    else:
-        return Group(zarr.storage.DirectoryStore(path))
+    return Group(zarr.storage.DirectoryStore(path))
 
 
 class Group(zarr.hierarchy.Group):
