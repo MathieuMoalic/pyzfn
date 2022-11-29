@@ -7,7 +7,7 @@ Wrapper around a `zarr.hierarchy.Group` to implement convenience functions that 
 ## Installation
 
 ```
-$ pip install llyr
+pip install git+https://github.com/mathieumoalic/pyzfn
 ```
 
 ## Usage
