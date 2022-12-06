@@ -1,6 +1,6 @@
-[![Python](https://img.shields.io/pypi/pyversions/tensorflow.svg?style=plastic)](https://badge.fury.io/py/tensorflow)
-
-![Tests](https://github.com/mathieumoalic/pyzfn/actions/workflows/tests.yml/badge.svg)
+<a href="https://github.com/Mathieumoalic/pyzfn/actions?query=workflow%3A%22Tests%22">
+<img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/Mathieumoalic/pyzfn/Tests.svg">
+</a>
 
 micromagnetic post processing library
 
