@@ -2,13 +2,14 @@ import os
 import pickle
 import multiprocessing as mp
 import struct
+from typing import List, Optional, Tuple, Dict, Union
 
 import matplotlib as mpl
 import pyfftw
 import numpy as np
 from nptyping import NDArray, Float, Shape, Int
 
-m_type = NDArray[Shape["t,z,y,x,c"], Float]
+m_type = NDArray[Shape["*,*,*,*,*"], Float]
 
 
 def wisdom_name_from_array(arr: m_type) -> str:
@@ -35,7 +36,7 @@ def load_wisdom(arr: m_type) -> bool:
 
 
 def build_fft(
-    arr: m_type, axis: int | tuple[int], planner_effort: str = "FFTW_MEASURE"
+    arr: m_type, axis: Union[int, Tuple[int]], planner_effort: str = "FFTW_MEASURE"
 ) -> pyfftw.FFTW:
     wisdom_loaded = load_wisdom(arr)
     fft = pyfftw.builders.fft(
@@ -53,7 +54,7 @@ def build_fft(
 def make_cmap(
     min_color: NDArray[Shape["256"], Float],
     max_color: NDArray[Shape["256"], Float],
-    mid_color: NDArray[Shape["256"], Float] | None = None,
+    mid_color: Optional[NDArray[Shape["256"], Float]] = None,
     transparent_zero: bool = False,
 ) -> mpl.colors.ListedColormap:
     cmap: NDArray[Shape["256, 4"], Float] = np.ones((256, 4))
@@ -147,9 +148,9 @@ def load_ovf(path: str) -> NDArray[Shape["4"], Int]:
     return arr
 
 
-def get_ovf_parms(path: str) -> dict[str, float]:
+def get_ovf_parms(path: str) -> Dict[str, float]:
     with open(path, "rb") as f:
-        parms: dict[str, float] = {}
+        parms: Dict[str, float] = {}
         while True:
             line = f.readline().strip().decode("ASCII")
             if "valuedim" in line:
@@ -172,13 +173,13 @@ def get_ovf_parms(path: str) -> dict[str, float]:
 
 
 def get_slices(
-    shape: tuple[int, int, int, int, int],
-    chunks: tuple[int, int, int, int, int],
-    slices: tuple[slice, slice, slice, slice, slice],
-) -> list[list[slice]]:
-    out: list[list[slice]] = [[], [], [], []]
+    shape: Tuple[int, int, int, int, int],
+    chunks: Tuple[int, int, int, int, int],
+    slices: Tuple[slice, slice, slice, slice, slice],
+) -> List[List[slice]]:
+    out: List[List[slice]] = [[], [], [], []]
     for i, (s, c, sl) in enumerate(list(zip(shape, chunks, slices))[1:]):
-        tmp_list: list[list[int]] = []
+        tmp_list: List[List[int]] = []
         for pt in list(range(s))[sl]:
             chunk_nb = pt // c
             if chunk_nb >= len(tmp_list):

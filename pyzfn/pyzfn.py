@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import shutil
 import multiprocessing as mp
+from typing import Union, Tuple
 
 import numpy as np
 import pyfftw
@@ -21,10 +22,10 @@ class Pyzfn:
         self.path: Path = Path(path).absolute()
         self.name: str = self.path.name.replace(self.path.suffix, "")
 
-    def __getitem__(self, item: str) -> zarr.Array | zarr.Group:
+    def __getitem__(self, item: str) -> Union[zarr.Array, zarr.Group]:
         return self.z[item]
 
-    def __getattr__(self, name: str) -> zarr.Array | zarr.Group | int | float | str:
+    def __getattr__(self, name: str) -> Union[zarr.Array, zarr.Group, int, float, str]:
         if name in dir(self):
             return getattr(self, name)
         if name in dir(self.z):
@@ -118,7 +119,7 @@ class Pyzfn:
         self,
         dset_in_str: str = "m",
         dset_out_str: str = "m",
-        slices: tuple[slice, slice, slice, slice, slice] = (
+        slices: Tuple[slice, slice, slice, slice, slice] = (
             slice(None),
             slice(None),
             slice(None),

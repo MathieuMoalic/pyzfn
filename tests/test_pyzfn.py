@@ -1,10 +1,8 @@
 from pyzfn import Pyzfn
 
-# import pytest
-
-# from pyzfn.Pyzfn import Pyzfn
+import pytest
 
 
-def calc_modes_test():
-    m = Pyzfn("dwa")
-    print(m.name) 
+def test_calc_modes() -> None:
+    with pytest.raises(Exception):
+        Pyzfn("dwa")
