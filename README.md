@@ -21,8 +21,6 @@ pip install git+https://github.com/mathieumoalic/pyzfn
 from pyzfn import Pyzfn
 
 job = Pyzfn("path/to/job.zarr")
-# or through any remote protocol
-job = llyr.open("ssh://remote_server:path/to/job.zarr")
 
 # Use this extensively
 job.pp # pretty print the data tree with a widget

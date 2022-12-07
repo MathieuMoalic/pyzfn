@@ -7,9 +7,10 @@ from typing import List, Optional, Tuple, Dict, Union
 import matplotlib as mpl
 import pyfftw
 import numpy as np
-from nptyping import NDArray, Float, Shape, Int
+import IPython
+from nptyping import NDArray, Float, Shape, Int, Float32
 
-m_type = NDArray[Shape["*,*,*,*,*"], Float]
+m_type = NDArray[Shape["*,*,*,*,*"], Float32]
 
 
 def wisdom_name_from_array(arr: m_type) -> str:
@@ -188,3 +189,92 @@ def get_slices(
         for sublist in tmp_list:
             out[i].append(slice(min(sublist), max(sublist) + 1, sl.step))
     return out
+
+
+def load_mpl_style() -> None:
+    IPython.get_ipython().run_cell_magic(
+        "html",
+        "",
+        "<style> .cell-output-ipywidget-background {background-color: transparent !important;}</style>",
+    )
+    IPython.get_ipython().run_line_magic("matplotlib", "widget")
+    IPython.get_ipython().run_line_magic("load_ext", "autoreload")
+    IPython.get_ipython().run_line_magic("autoreload", "2")
+    from ipympl.backend_nbagg import Canvas
+
+    Canvas.header_visible.default_value = False
+    Canvas.footer_visible.default_value = True
+    from matplotlib import pyplot as plt
+    import matplotx
+
+    plt.style.use(matplotx.styles.duftify(matplotx.styles.dracula))
+    plt.rcParams["figure.max_open_warning"] = 1000
+    plt.rcParams["figure.figsize"] = [14, 5]
+    plt.rcParams["figure.autolayout"] = True
+    plt.rcParams["axes.grid.axis"] = "both"
+
+
+def save_current_mplstyle(path: str) -> None:
+    from matplotlib import pyplot as plt
+
+    newlines = []
+    for k, v in plt.rcParams.items():
+        if k in [
+            "backend",
+            "backend_fallback",
+            "date.epoch",
+            "docstring.hardcopy",
+            "figure.max_open_warning",
+            "figure.raise_window",
+            "interactive",
+            "savefig.directory",
+            "timezone",
+            "tk.window_focus",
+            "toolbar",
+            "webagg.address",
+            "webagg.open_in_browser",
+            "webagg.port",
+            "webagg.port_retries",
+        ]:
+            continue
+        if isinstance(v, list):
+            v = [str(i) for i in v]
+            v = ", ".join(v)
+        v = str(v)
+        if len(v) > 4:
+            if v[0] == "#":
+                v = v[1:]
+        if k == "axes.prop_cycle":
+            v = v.replace("#", "")
+        if k == "grid.color":
+            v = '"' + v + '"'
+        if k == "lines.dash_joinstyle":
+            v = "round"
+        if k == "lines.dash_capstyle":
+            v = "butt"
+        if k == "lines.solid_capstyle":
+            v = "projecting"
+        if k == "lines.solid_joinstyle":
+            v = "round"
+        if k == "savefig.bbox":
+            v = "tight"
+        newlines.append(k + ": " + v + "\n")
+
+    with open(path, "w") as f:
+        f.writelines(newlines)
+
+
+def hsl2rgb(hsl: NDArray[Shape["*,*,3"], Float32]) -> NDArray[Shape["*,*,3"], Float32]:
+    h = hsl[..., 0] * 360
+    s = hsl[..., 1]
+    l = hsl[..., 2]
+
+    rgb = np.zeros_like(hsl)
+    for i, n in enumerate([0, 8, 4]):
+        k = (n + h / 30) % 12
+        a = s * np.minimum(l, 1 - l)
+        k = np.minimum(k - 3, 9 - k)
+        k = np.clip(k, -1, 1)
+        rgb[..., i] = l - a * k
+    rgb = np.clip(rgb, 0, 1)
+    return rgb
