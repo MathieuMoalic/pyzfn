@@ -52,4 +52,8 @@ help(mag_dst)
 # The following is not from zarr, they are convenient (somewhat optimized) post processing functions
 job.calc_disp()
 job.calc_modes()
+
+# Data visualization:
+job.snapshot() # visualize data for a specific t
+job.ispec() # interactive fft spectra
 ```
