@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 import multiprocessing as mp
 from collections import namedtuple
-from typing import Union, Tuple
+from typing import Optional, Union, Tuple, List
 import peakutils
 
 import numpy as np
@@ -12,8 +12,15 @@ import zarr
 from tqdm import trange, tqdm
 from matplotlib import pyplot as plt
 import matplotlib as mpl
+from nptyping import NDArray, Shape, Float32
 
 from .utils import get_slices, hsl2rgb
+
+np1d = NDArray[Shape["*"], Float32]
+np2d = NDArray[Shape["*,*"], Float32]
+np3d = NDArray[Shape["*,*,*"], Float32]
+np4d = NDArray[Shape["*,*,*,*"], Float32]
+np5d = NDArray[Shape["*,*,*,*,*"], Float32]
 
 
 class Pyzfn:
@@ -169,13 +176,12 @@ class Pyzfn:
         zsls, ysls, xsls, csls = get_slices(dset_in.shape, dset_in.chunks, slices)
         chunk_nb = len(zsls) * len(ysls) * len(xsls) * len(csls)
         chunk_idx = 0
-        with tqdm(total=chunk_nb) as pbar:
+        with tqdm(total=chunk_nb, desc="Calculating SW modes", leave=False) as pbar:
             for zsl in zsls:
                 for ysl in ysls:
                     for xsl in xsls:
                         for csl in csls:
-                            q = dset_in[slices[0], zsl, ysl, xsl, csl]
-                            x0[:] = q
+                            x0[:] = dset_in[slices[0], zsl, ysl, xsl, csl]
                             x0 -= np.average(x0, axis=0)[None, ...]
                             x0 *= np.hanning(x0.shape[0])[:, None, None, None, None]
                             x1 = fft()[:lenf]
@@ -187,9 +193,9 @@ class Pyzfn:
                             pbar.update(chunk_idx)
         dset_fft[:] = np.max(np.array(fft_out), axis=0)
 
-    def get_mode(self, dset: str, f: float, c=None):
+    def get_mode(self, dset: str, f: float, c: Union[int, None] = None) -> np4d:
         fi = int((np.abs(self[f"modes/{dset}/freqs"][:] - f)).argmin())
-        arr = self[f"modes/{dset}/arr"][fi]
+        arr: np4d = self[f"modes/{dset}/arr"][fi]
         if c is None:
             return arr
         else:
@@ -197,21 +203,22 @@ class Pyzfn:
 
     def ispec(
         self,
-        dset="m",
-        thres=0.1,
-        min_dist=5,
-        xmin=0,
-        xmax=40,
-        c=0,
-    ):
-        def get_peaks(x, y):
-            Peak = namedtuple("Peak", "idx freq amp")
+        dset: str = "m",
+        thres: float = 0.1,
+        min_dist: int = 5,
+        xmin: float = 0,
+        xmax: float = 40,
+        c: int = 0,
+    ) -> None:
+        Peak = namedtuple("Peak", ["idx", "freq", "amp"])
+
+        def get_peaks(x: np1d, y: np1d) -> List[Peak]:
             idx = peakutils.indexes(y, thres=thres, min_dist=min_dist)
             peak_amp = [y[i] for i in idx]
             freqs = [x[i] for i in idx]
             return [Peak(i, f, a) for i, f, a in zip(idx, freqs, peak_amp)]
 
-        def plot_spectra(ax, x, y, peaks):
+        def plot_spectra(ax: plt.Axes, x: np1d, y: np1d, peaks: List[Peak]) -> None:
             ax.plot(x, y)
             for _, freq, amp in peaks:
                 ax.text(
@@ -227,7 +234,7 @@ class Pyzfn:
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
 
-        def plot_modes(axes, f):
+        def plot_modes(axes: plt.Axes, f: float) -> None:
             for ax in axes.flatten():
                 ax.cla()
                 ax.set(xticks=[], yticks=[])
@@ -271,7 +278,7 @@ class Pyzfn:
                     extent=extent,
                 )
 
-        def get_spectrum():
+        def get_spectrum() -> Tuple[np1d, np1d]:
             x = self[f"fft/{dset}/freqs"][:]
             y = self[f"fft/{dset}/spec"][:, c]
             x1 = np.abs(x - xmin).argmin()
@@ -288,7 +295,7 @@ class Pyzfn:
         vline = ax_spec.axvline(10, ls="--", lw=0.8, c="#ffb86c")
         # plot_modes(axes_modes, peaks[0].freq)
 
-        def onclick(event):
+        def onclick(event: mpl.backend_bases.Event) -> None:
             if event.inaxes == ax_spec:
                 f = 10
                 if event.button.name == "RIGHT":
@@ -301,11 +308,16 @@ class Pyzfn:
                 fig.canvas.draw()
 
         fig.canvas.mpl_connect("button_press_event", onclick)
-        return fig, ax_spec, axes_modes
 
     def snapshot(
-        self, dset: str = "m", z: int = 0, t: int = -1, ax=None, repeat=1, zero=None
-    ):
+        self,
+        dset: str = "m",
+        z: int = 0,
+        t: int = -1,
+        ax: Optional[plt.Axes] = None,
+        repeat: int = 1,
+        zero: Optional[bool] = None,
+    ) -> plt.Axes:
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=(6, 6), dpi=100)
         else:
