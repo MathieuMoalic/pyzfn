@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 import matplotlib as mpl
 from nptyping import NDArray, Shape, Float32
 
-from .utils import get_slices, hsl2rgb
+from .utils import get_slices, hsl2rgb, load_wisdom, save_wisdom
 
 np1d = NDArray[Shape["*"], Float32]
 np2d = NDArray[Shape["*,*"], Float32]
@@ -96,6 +96,7 @@ class Pyzfn:
             :, :, None
         ]
         arr = pyfftw.empty_aligned((s[0] - 1, s[3] - 1, s[4]), dtype=np.complex64)
+        load_wisdom(arr)
         fft = pyfftw.builders.fftn(
             arr,
             axes=(1, 0),
@@ -103,6 +104,7 @@ class Pyzfn:
             planner_effort="FFTW_ESTIMATE",
             avoid_copy=True,
         )
+        save_wisdom(arr)
         for iy in trange(
             dset_in.shape[2] // dset_in.chunks[2],
             leave=False,
@@ -162,9 +164,10 @@ class Pyzfn:
             f"modes/{dset_out_str}/arr",
             shape=(lenf, sz, sy, sx, sc),
             dtype=np.complex64,
-            chunks=(1, None, None, None, None),
+            chunks=(50, cz, cy, cx, cc),
         )
         x0 = pyfftw.empty_aligned((st, cz, cy, cx, cc), dtype=np.complex64)
+        load_wisdom(x0)
         fft = pyfftw.builders.fft(
             x0,
             axis=0,
@@ -172,25 +175,40 @@ class Pyzfn:
             planner_effort="FFTW_ESTIMATE",
             avoid_copy=True,
         )
+        save_wisdom(x0)
         fft_out = []
         zsls, ysls, xsls, csls = get_slices(dset_in.shape, dset_in.chunks, slices)
         chunk_nb = len(zsls) * len(ysls) * len(xsls) * len(csls)
-        chunk_idx = 0
-        with tqdm(total=chunk_nb, desc="Calculating SW modes", leave=False) as pbar:
+        # import time
+
+        # print(dset_in.chunks)
+        with tqdm(total=chunk_nb, desc="Calculating SW modes", leave=False) as progress:
             for zsl in zsls:
                 for ysl in ysls:
                     for xsl in xsls:
                         for csl in csls:
+                            # print(f"{zsl=},{ysl=},{xsl=},{csl=}")
+                            # t0 = time.time()
                             x0[:] = dset_in[slices[0], zsl, ysl, xsl, csl]
+                            # t1 = time.time()
                             x0 -= np.average(x0, axis=0)[None, ...]
+                            # t2 = time.time()
                             x0 *= np.hanning(x0.shape[0])[:, None, None, None, None]
+                            # t3 = time.time()
                             x1 = fft()[:lenf]
+                            # t4 = time.time()
                             dset_modes[slices[0], zsl, ysl, xsl, csl] = x1
+                            # t5 = time.time()
                             x1 = np.abs(x1)
+                            # t6 = time.time()
                             x1 = np.max(x1, axis=(1, 2, 3))
+                            # t7 = time.time()
                             fft_out.append(x1)
-                            chunk_idx += 1
-                            pbar.update(chunk_idx)
+                            # t8 = time.time()
+                            # print(
+                            #     f"loading slice:{t1-t0:.2f},average:{t2-t1:.2f},hanning:{t3-t2:.2f},fft:{t4-t3:.2f},saving modes:{t5-t4:.2f},abs:{t6-t5:.2f},max:{t7-t6:.2f},saving fft:{t8-t7:.2f}"
+                            # )
+                            progress.update()
         dset_fft[:] = np.max(np.array(fft_out), axis=0)
 
     def get_mode(self, dset: str, f: float, c: Union[int, None] = None) -> np4d:
@@ -206,8 +224,8 @@ class Pyzfn:
         dset: str = "m",
         thres: float = 0.1,
         min_dist: int = 5,
-        xmin: float = 0,
-        xmax: float = 40,
+        fmin: float = 0,
+        fmax: float = 40,
         c: int = 0,
     ) -> None:
         Peak = namedtuple("Peak", ["idx", "freq", "amp"])
@@ -281,8 +299,8 @@ class Pyzfn:
         def get_spectrum() -> Tuple[np1d, np1d]:
             x = self[f"fft/{dset}/freqs"][:]
             y = self[f"fft/{dset}/spec"][:, c]
-            x1 = np.abs(x - xmin).argmin()
-            x2 = np.abs(x - xmax).argmin()
+            x1 = np.abs(x - fmin).argmin()
+            x2 = np.abs(x - fmax).argmin()
             return x[x1:x2], y[x1:x2]
 
         fig = plt.figure(constrained_layout=True, figsize=(15, 6))
@@ -385,3 +403,35 @@ class Pyzfn:
         ax.set(title=self.name, xlabel="x (nm)", ylabel="y (nm)")
         fig.tight_layout()
         return ax
+
+    def trim_modes(
+        self, dset_in_str: str = "m", dset_out_str: str = "m", peak_xcut_min: int = 5
+    ):
+        self.rm(f"tmodes/{dset_in_str}")
+        dset_in = self[dset_in_str]
+        all_peaks = []
+        for c in range(1):
+            arr = dset_in[peak_xcut_min:, c]
+            peaks = []
+            for thres in np.linspace(0.1, 0.001):
+                peaks = peakutils.indexes(arr / arr.max(), thres=thres, min_dist=2)
+                if len(peaks) > 25:
+                    break
+            if len(peaks) == 0:
+                print(f"No peaks found for {c=} in {self.name}")
+            for p in peaks:
+                all_peaks.append(p + peak_xcut_min)
+        peaks = sorted(set(all_peaks))
+        s = dset_in.shape
+        self.z.create_dataset(
+            f"tmodes/{dset_out_str}/freqs",
+            data=np.array([self["modes.m.freqs"][i] for i in peaks]),
+            chunks=False,
+            dtype=np.float32,
+        )
+        self.z.create_dataset(
+            f"tmodes/{dset_out_str}/arr",
+            data=np.array([self["modes.m.arr"][i] for i in peaks]),
+            chunks=(1, *s[1:]),
+            dtype=np.float32,
+        )
