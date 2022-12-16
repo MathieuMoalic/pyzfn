@@ -1,8 +1,7 @@
 import os
 import pickle
-import multiprocessing as mp
 import struct
-from typing import List, Optional, Tuple, Dict, Union
+from typing import List, Optional, Tuple, Dict
 
 import matplotlib as mpl
 import pyfftw
@@ -32,30 +31,14 @@ def load_wisdom(arr: m_type) -> bool:
         # print("Wisdom found.")
         return True
     else:
-        print("Wisdom not found, it might take a while optimizing FFTW.")
+        # print("Wisdom not found, it might take a while optimizing FFTW.")
         return False
 
 
-def build_fft(
-    arr: m_type, axis: Union[int, Tuple[int]], planner_effort: str = "FFTW_MEASURE"
-) -> pyfftw.FFTW:
-    wisdom_loaded = load_wisdom(arr)
-    fft = pyfftw.builders.fft(
-        arr,
-        axis=axis,
-        threads=mp.cpu_count() // 2,
-        planner_effort=planner_effort,
-        avoid_copy=True,
-    )
-    if not wisdom_loaded:
-        save_wisdom(arr)
-    return fft
-
-
 def make_cmap(
-    min_color: NDArray[Shape["256"], Float],
-    max_color: NDArray[Shape["256"], Float],
-    mid_color: Optional[NDArray[Shape["256"], Float]] = None,
+    min_color: Tuple[int, int, int, int],
+    max_color: Tuple[int, int, int, int],
+    mid_color: Optional[Tuple[int, int, int, int]] = None,
     transparent_zero: bool = False,
 ) -> mpl.colors.ListedColormap:
     cmap: NDArray[Shape["256, 4"], Float] = np.ones((256, 4))
@@ -192,25 +175,28 @@ def get_slices(
 
 
 def load_mpl_style() -> None:
-    IPython.get_ipython().run_cell_magic(
-        "html",
-        "",
-        "<style> .cell-output-ipywidget-background {background-color: transparent !important;}</style>",
-    )
-    IPython.get_ipython().run_line_magic("matplotlib", "widget")
-    IPython.get_ipython().run_line_magic("load_ext", "autoreload")
-    IPython.get_ipython().run_line_magic("autoreload", "2")
-    from ipympl.backend_nbagg import Canvas
+    ipy = IPython.get_ipython()
+    if ipy is not None:
+        ipy.run_cell_magic(
+            "html",
+            "",
+            "<style> .cell-output-ipywidget-background {background-color: transparent !important;}</style>",
+        )
+        ipy.run_line_magic("matplotlib", "widget")
+        ipy.run_line_magic("load_ext", "autoreload")
+        ipy.run_line_magic("autoreload", "2")
+        from ipympl.backend_nbagg import Canvas
 
-    Canvas.header_visible.default_value = False
-    Canvas.footer_visible.default_value = True
+        Canvas.header_visible.default_value = False
+        Canvas.footer_visible.default_value = True
     from matplotlib import pyplot as plt
     import matplotx
 
-    plt.style.use(matplotx.styles.duftify(matplotx.styles.dracula))
+    plt.style.use(matplotx.styles.dracula)
     plt.rcParams["figure.max_open_warning"] = 1000
     plt.rcParams["figure.figsize"] = [14, 5]
     plt.rcParams["figure.autolayout"] = True
+    plt.rcParams["axes.grid"] = True
     plt.rcParams["axes.grid.axis"] = "both"
 
 
