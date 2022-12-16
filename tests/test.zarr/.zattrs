@@ -1,0 +1,21 @@
+{
+	"dx": 4e-9,
+	"dy": 4e-9,
+	"dz": 4e-9,
+	"Nx": 50,
+	"Ny": 1,
+	"Nz": 1,
+	"Tx": 2.0000000000000002e-7,
+	"Ty": 4e-9,
+	"Tz": 4e-9,
+	"start_time": "Fri Dec  9 09:35:27 CET 2022",
+	"end_time": "Fri Dec  9 09:35:28 CET 2022",
+	"total_time": "253.206057ms",
+	"PBC": [
+		0,
+		0,
+		0
+	],
+	"gpu": "NVIDIA GeForce RTX 3080 Ti(12042MB), CUDA Driver 12.0, cc=8.6",
+	"host": "kgpu02"
+}

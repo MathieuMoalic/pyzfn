@@ -1,0 +1,11 @@
+setgridsize(50, 1, 1)
+setcellsize(4e-9, 4e-9, 4e-9)
+setpbc(0, 0, 0)
+msat = 760e3
+aex = 13e-12
+alpha = 1e-7
+B_ext = vector(0.1, 0, 0)
+m = uniform(1,0,0)
+minimize()
+autosave(m,1e-11)
+run(1e-10)
