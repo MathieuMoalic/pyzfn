@@ -1,18 +1,18 @@
-import os
-from pathlib import Path
-import shutil
 import multiprocessing as mp
+import os
+import shutil
 from collections import namedtuple
-from typing import Optional, Union, Tuple, List
-import peakutils
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
 
+import matplotlib as mpl
 import numpy as np
+import peakutils
 import pyfftw
 import zarr
-from tqdm import trange, tqdm
 from matplotlib import pyplot as plt
-import matplotlib as mpl
-from nptyping import NDArray, Shape, Float32
+from nptyping import Float32, NDArray, Shape
+from tqdm import tqdm, trange
 
 from .utils import get_slices, hsl2rgb, load_wisdom, save_wisdom
 
@@ -72,6 +72,12 @@ class Pyzfn:
         """
         shutil.rmtree(f"{self.path}/{dset}", ignore_errors=True)
 
+    def is_finished(self) -> bool:
+        return self.z.attrs["end_time"] != ""
+
+    def is_running(self) -> bool:
+        return self.z.attrs["end_time"] == ""
+
     def mkdir(self, name: str) -> None:
         """
         Create nested directories
@@ -80,7 +86,9 @@ class Pyzfn:
         """
         os.makedirs(f"{self.path}/{name}", exist_ok=True)
 
-    def calc_disp(self, dset_in_str: str = "m", dset_out_str: str = "m") -> None:
+    def calc_disp(
+        self, dset_in_str: str = "m", dset_out_str: str = "m", single_y: bool = False
+    ) -> None:
         """
         Calculate the dispersion of `/dset_in_str` and saves it in `/disp/dset_out_str`
         :param dset_in_str: str:  (Default value = "m")
@@ -116,7 +124,9 @@ class Pyzfn:
             out -= np.average(out, axis=(0, 1))[None, None, :]
             out = out[: out.shape[0] // 2]
             out = np.fft.fftshift(out, axes=(1, 2))
-            arr_out[:] += np.abs(out)
+            arr_out[:] += np.abs(out[: arr_out.shape[0]])
+            if single_y:
+                break
         self.z.create_dataset(f"{dset_out}/arr", data=arr_out)
         ts = dset_in.attrs["t"][:]
         freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts))
@@ -435,3 +445,35 @@ class Pyzfn:
             chunks=(1, *s[1:]),
             dtype=np.float32,
         )
+
+    def ihist(self, xdata: str = "B_extz", ydata: str = "mz"):
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
+        fig.subplots_adjust(bottom=0.16, top=0.94, right=0.99, left=0.08)
+        b_ext = self.z[f"table/{xdata}"][:]
+        m_avr = self.z[f"table/{ydata}"][:]
+        passes = ["from 1T to -1T", "from -1T to 1T"]
+        ax1.plot(b_ext[: len(b_ext) // 2], m_avr[: len(b_ext) // 2], label=passes[0])
+        ax1.plot(
+            b_ext[len(b_ext) // 2 :], m_avr[len(b_ext) // 2 :], label=passes[1], ls="--"
+        )
+        ax1.legend()
+        B_sel = 10
+        vline = ax1.axvline(b_ext[B_sel], c="gray", ls=":")
+
+        def onclick(event):
+            if event.inaxes == ax1:
+                B_sel = np.abs(b_ext[: len(b_ext) // 2] - event.xdata).argmin()
+                ax2.cla()
+                if np.abs(m_avr[B_sel] - event.ydata) < np.abs(
+                    m_avr[len(m_avr) // 2 :][::-1][B_sel] - event.ydata
+                ):
+                    self.snapshot("m", t=B_sel, ax=ax2)
+                    ax2.set_title(f"B_ext = {b_ext[B_sel]:.3f} T; from 1T to -1T")
+                else:
+                    self.snapshot("m", t=len(b_ext) - B_sel, ax=ax2)
+                    ax2.set_title(f"B_ext = {b_ext[B_sel]:.3f} T; from -1T to 1T")
+
+                vline.set_data([b_ext[B_sel], b_ext[B_sel]], [0, 1])
+                fig.canvas.draw()
+
+        fig.canvas.mpl_connect("button_press_event", onclick)
