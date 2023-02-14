@@ -9,3 +9,4 @@ zarr==2.13.3
 pyfftw==0.13.0
 nptyping==2.4.1
 peakutils>=1.3.4
+matplotx==0.3
