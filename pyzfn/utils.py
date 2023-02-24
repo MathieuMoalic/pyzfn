@@ -162,7 +162,7 @@ def get_slices(
     slices: Tuple[slice, slice, slice, slice, slice],
 ) -> List[List[slice]]:
     out: List[List[slice]] = [[], [], [], []]
-    for i, (s, c, sl) in enumeratJe(list(zip(shape, chunks, slices))[1:]):
+    for i, (s, c, sl) in enumerate(list(zip(shape, chunks, slices))[1:]):
         tmp_list: List[List[int]] = []
         for pt in list(range(s))[sl]:
             chunk_nb = pt // c
@@ -186,15 +186,16 @@ def load_mpl_style(skip_style=False) -> None:
         ipy.run_line_magic("load_ext", "autoreload")
         ipy.run_line_magic("autoreload", "2")
         from ipympl.backend_nbagg import Canvas
+        from matplotlib import pyplot as plt
+
+        plt.rcParams["figure.max_open_warning"] = 1000
 
         Canvas.header_visible.default_value = False
         Canvas.footer_visible.default_value = True
     if not skip_style:
-        from matplotlib import pyplot as plt
         import matplotx
 
         plt.style.use(matplotx.styles.dracula)
-        plt.rcParams["figure.max_open_warning"] = 1000
         plt.rcParams["figure.figsize"] = [14, 5]
         plt.rcParams["figure.autolayout"] = True
         # plt.rcParams["axes.grid"] = True
