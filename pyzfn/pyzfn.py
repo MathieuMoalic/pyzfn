@@ -415,16 +415,16 @@ class Pyzfn:
         return ax
 
     def trim_modes(
-        self, dset_in_str: str = "m", dset_out_str: str = "m", peak_xcut_min: int = 5
+        self, dset_in_str: str = "m", dset_out_str: str = "m", peak_xcut_min: int = 0
     ):
         self.rm(f"tmodes/{dset_in_str}")
-        dset_in = self[dset_in_str]
+        dset_in = self.z[f"modes/{dset_in_str}/arr"]
         all_peaks = []
-        for c in range(1):
-            arr = dset_in[peak_xcut_min:, c]
+        for c in range(3):
+            spec = self.fft.m.spec[peak_xcut_min:, c]
             peaks = []
             for thres in np.linspace(0.1, 0.001):
-                peaks = peakutils.indexes(arr / arr.max(), thres=thres, min_dist=2)
+                peaks = peakutils.indexes(spec / spec.max(), thres=thres, min_dist=2)
                 if len(peaks) > 25:
                     break
             if len(peaks) == 0:
@@ -435,15 +435,15 @@ class Pyzfn:
         s = dset_in.shape
         self.z.create_dataset(
             f"tmodes/{dset_out_str}/freqs",
-            data=np.array([self["modes.m.freqs"][i] for i in peaks]),
+            data=np.array([self.z[f"modes/{dset_in_str}/freqs"][i] for i in peaks]),
             chunks=False,
             dtype=np.float32,
         )
         self.z.create_dataset(
             f"tmodes/{dset_out_str}/arr",
-            data=np.array([self["modes.m.arr"][i] for i in peaks]),
+            data=np.array([dset_in[i] for i in peaks], np.complex64),
             chunks=(1, *s[1:]),
-            dtype=np.float32,
+            dtype=np.complex64,
         )
 
     def ihist(self, xdata: str = "B_extz", ydata: str = "mz"):
@@ -457,7 +457,7 @@ class Pyzfn:
             b_ext[len(b_ext) // 2 :], m_avr[len(b_ext) // 2 :], label=passes[1], ls="--"
         )
         ax1.legend()
-        B_sel = 10
+        B_sel = b_ext.shape[0] // 4
         vline = ax1.axvline(b_ext[B_sel], c="gray", ls=":")
 
         def onclick(event):
