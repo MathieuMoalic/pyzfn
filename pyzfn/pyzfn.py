@@ -16,6 +16,7 @@ from tqdm import tqdm, trange
 
 from .utils import get_slices, hsl2rgb, load_wisdom, save_wisdom
 
+
 np1d = NDArray[Shape["*"], Float32]
 np2d = NDArray[Shape["*,*"], Float32]
 np3d = NDArray[Shape["*,*,*"], Float32]
@@ -73,10 +74,12 @@ class Pyzfn:
         shutil.rmtree(f"{self.path}/{dset}", ignore_errors=True)
 
     def is_finished(self) -> bool:
-        return self.z.attrs["end_time"] != ""
+        end_time: str = self.z.attrs["end_time"]
+        return end_time != ""
 
     def is_running(self) -> bool:
-        return self.z.attrs["end_time"] == ""
+        end_time: str = self.z.attrs["end_time"]
+        return end_time == ""
 
     def mkdir(self, name: str) -> None:
         """
@@ -416,12 +419,12 @@ class Pyzfn:
 
     def trim_modes(
         self, dset_in_str: str = "m", dset_out_str: str = "m", peak_xcut_min: int = 0
-    ):
+    ) -> None:
         self.rm(f"tmodes/{dset_in_str}")
         dset_in = self.z[f"modes/{dset_in_str}/arr"]
         all_peaks = []
         for c in range(3):
-            spec = self.fft.m.spec[peak_xcut_min:, c]
+            spec = self.z.fft.m.spec[peak_xcut_min:, c]
             peaks = []
             for thres in np.linspace(0.1, 0.001):
                 peaks = peakutils.indexes(spec / spec.max(), thres=thres, min_dist=2)
@@ -446,7 +449,7 @@ class Pyzfn:
             dtype=np.complex64,
         )
 
-    def ihist(self, xdata: str = "B_extz", ydata: str = "mz"):
+    def ihist(self, xdata: str = "B_extz", ydata: str = "mz") -> None:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
         fig.subplots_adjust(bottom=0.16, top=0.94, right=0.99, left=0.08)
         b_ext = self.z[f"table/{xdata}"][:]
@@ -460,7 +463,7 @@ class Pyzfn:
         B_sel = b_ext.shape[0] // 4
         vline = ax1.axvline(b_ext[B_sel], c="gray", ls=":")
 
-        def onclick(event):
+        def onclick(event: mpl.backend_bases.Event) -> None:
             if event.inaxes == ax1:
                 B_sel = np.abs(b_ext[: len(b_ext) // 2] - event.xdata).argmin()
                 ax2.cla()

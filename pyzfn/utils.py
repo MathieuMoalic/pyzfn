@@ -4,10 +4,13 @@ import struct
 from typing import List, Optional, Tuple, Dict
 
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+from ipympl.backend_nbagg import Canvas
 import pyfftw
 import numpy as np
 import IPython
 from nptyping import NDArray, Float, Shape, Int, Float32
+import matplotx
 
 m_type = NDArray[Shape["*,*,*,*,*"], Float32]
 
@@ -174,8 +177,8 @@ def get_slices(
     return out
 
 
-def load_mpl_style(skip_style=False) -> None:
-    ipy = IPython.get_ipython()
+def load_mpl_style(skip_style: bool = False) -> None:
+    ipy = IPython.get_ipython()  # type: ignore
     if ipy is not None:
         ipy.run_cell_magic(
             "html",
@@ -185,16 +188,12 @@ def load_mpl_style(skip_style=False) -> None:
         ipy.run_line_magic("matplotlib", "widget")
         ipy.run_line_magic("load_ext", "autoreload")
         ipy.run_line_magic("autoreload", "2")
-        from ipympl.backend_nbagg import Canvas
-        from matplotlib import pyplot as plt
 
         plt.rcParams["figure.max_open_warning"] = 1000
 
         Canvas.header_visible.default_value = False
         Canvas.footer_visible.default_value = True
     if not skip_style:
-        import matplotx
-
         plt.style.use(matplotx.styles.dracula)
         plt.rcParams["figure.figsize"] = [14, 5]
         plt.rcParams["figure.autolayout"] = True
