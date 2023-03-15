@@ -449,7 +449,7 @@ class Pyzfn:
             dtype=np.complex64,
         )
 
-    def ihist(self, xdata: str = "B_extz", ydata: str = "mz") -> None:
+    def ihist(self, dset: str = "m", xdata: str = "B_extz", ydata: str = "mz") -> None:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
         fig.subplots_adjust(bottom=0.16, top=0.94, right=0.99, left=0.08)
         b_ext = self.z[f"table/{xdata}"][:]
@@ -470,10 +470,10 @@ class Pyzfn:
                 if np.abs(m_avr[B_sel] - event.ydata) < np.abs(
                     m_avr[len(m_avr) // 2 :][::-1][B_sel] - event.ydata
                 ):
-                    self.snapshot("m", t=B_sel, ax=ax2)
+                    self.snapshot(dset, t=B_sel, ax=ax2)
                     ax2.set_title(f"B_ext = {b_ext[B_sel]:.3f} T; from 1T to -1T")
                 else:
-                    self.snapshot("m", t=len(b_ext) - B_sel, ax=ax2)
+                    self.snapshot(dset, t=len(b_ext) - B_sel, ax=ax2)
                     ax2.set_title(f"B_ext = {b_ext[B_sel]:.3f} T; from -1T to 1T")
 
                 vline.set_data([b_ext[B_sel], b_ext[B_sel]], [0, 1])
