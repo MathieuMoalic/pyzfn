@@ -460,23 +460,29 @@ class Pyzfn:
             b_ext[len(b_ext) // 2 :], m_avr[len(b_ext) // 2 :], label=passes[1], ls="--"
         )
         ax1.legend()
-        B_sel = b_ext.shape[0] // 4
-        vline = ax1.axvline(b_ext[B_sel], c="gray", ls=":")
+        selector = b_ext.shape[0] // 4
+        vline = ax1.axvline(b_ext[selector], c="gray", ls=":")
+        hline = ax1.axhline(m_avr[selector], c="gray", ls=":")
 
         def onclick(event: mpl.backend_bases.Event) -> None:
             if event.inaxes == ax1:
-                B_sel = np.abs(b_ext[: len(b_ext) // 2] - event.xdata).argmin()
+                selector = np.abs(b_ext[: len(b_ext) // 2] - event.xdata).argmin()
                 ax2.cla()
-                if np.abs(m_avr[B_sel] - event.ydata) < np.abs(
-                    m_avr[len(m_avr) // 2 :][::-1][B_sel] - event.ydata
+                if np.abs(m_avr[selector] - event.ydata) < np.abs(
+                    m_avr[len(m_avr) // 2 :][::-1][selector] - event.ydata
                 ):
-                    self.snapshot(dset, t=B_sel, ax=ax2)
-                    ax2.set_title(f"B_ext = {b_ext[B_sel]:.3f} T; from 1T to -1T")
+                    selector = selector
                 else:
-                    self.snapshot(dset, t=len(b_ext) - B_sel, ax=ax2)
-                    ax2.set_title(f"B_ext = {b_ext[B_sel]:.3f} T; from -1T to 1T")
-
-                vline.set_data([b_ext[B_sel], b_ext[B_sel]], [0, 1])
+                    selector = len(b_ext) - selector
+                self.snapshot(dset, t=len(b_ext) - selector, ax=ax2)
+                vline.set_data(
+                    [b_ext[selector], b_ext[selector]],
+                    [-1, 1],
+                )
+                hline.set_data(
+                    [b_ext.min(), b_ext.max()],
+                    [m_avr[selector], m_avr[selector]],
+                )
                 fig.canvas.draw()
 
         fig.canvas.mpl_connect("button_press_event", onclick)
