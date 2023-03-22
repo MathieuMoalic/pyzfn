@@ -13,6 +13,11 @@ from nptyping import NDArray, Float, Shape, Int, Float32
 import matplotx
 
 m_type = NDArray[Shape["*,*,*,*,*"], Float32]
+np1d = NDArray[Shape["*"], Float32]
+np2d = NDArray[Shape["*,*"], Float32]
+np3d = NDArray[Shape["*,*,*"], Float32]
+np4d = NDArray[Shape["*,*,*,*"], Float32]
+np5d = NDArray[Shape["*,*,*,*,*"], Float32]
 
 
 def wisdom_name_from_array(arr: m_type) -> str:
@@ -265,3 +270,19 @@ def hsl2rgb(hsl: NDArray[Shape["*,*,3"], Float32]) -> NDArray[Shape["*,*,3"], Fl
         rgb[..., i] = l - a * k
     rgb = np.clip(rgb, 0, 1)
     return rgb
+
+
+def get_closest_point_on_fig(
+    ptx: float, pty: float, linex: np1d, liney: np1d, fig: plt.Figure
+) -> int:
+    def normalize(point: float, line: np1d) -> np1d:
+        line_norm = (line - line.min()) / (line.max() - line.min())
+        point_norm = (point - line.min()) / (line.max() - line.min())
+        out: np1d = line_norm - point_norm
+        return out
+
+    figratio = fig.get_figwidth() / fig.get_figheight()
+    ix = normalize(ptx, linex)
+    iy = normalize(pty, liney) / figratio
+    i: int = np.sqrt(ix**2 + iy**2).argmin()
+    return i

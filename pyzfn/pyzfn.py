@@ -14,8 +14,13 @@ from matplotlib import pyplot as plt
 from nptyping import Float32, NDArray, Shape
 from tqdm import tqdm, trange
 
-from .utils import get_slices, hsl2rgb, load_wisdom, save_wisdom
-
+from .utils import (
+    get_slices,
+    hsl2rgb,
+    load_wisdom,
+    save_wisdom,
+    get_closest_point_on_fig,
+)
 
 np1d = NDArray[Shape["*"], Float32]
 np2d = NDArray[Shape["*,*"], Float32]
@@ -452,37 +457,23 @@ class Pyzfn:
     def ihist(self, dset: str = "m", xdata: str = "B_extz", ydata: str = "mz") -> None:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
         fig.subplots_adjust(bottom=0.16, top=0.94, right=0.99, left=0.08)
-        b_ext = self.z[f"table/{xdata}"][:]
-        m_avr = self.z[f"table/{ydata}"][:]
-        passes = ["from 1T to -1T", "from -1T to 1T"]
-        ax1.plot(b_ext[: len(b_ext) // 2], m_avr[: len(b_ext) // 2], label=passes[0])
-        ax1.plot(
-            b_ext[len(b_ext) // 2 :], m_avr[len(b_ext) // 2 :], label=passes[1], ls="--"
-        )
-        ax1.legend()
-        selector = b_ext.shape[0] // 4
-        vline = ax1.axvline(b_ext[selector], c="gray", ls=":")
-        hline = ax1.axhline(m_avr[selector], c="gray", ls=":")
+        x = self.z[f"table/{xdata}"][:]
+        y = self.z[f"table/{ydata}"][:]
+        ax1.plot(x, y)
+        ax1.set_xlabel(xdata)
+        ax1.set_ylabel(ydata)
+        selector = x.shape[0] // 4
+        vline = ax1.axvline(x[selector], c="gray", ls=":")
+        hline = ax1.axhline(y[selector], c="gray", ls=":")
 
-        def onclick(event: mpl.backend_bases.Event) -> None:
-            if event.inaxes == ax1:
-                selector = np.abs(b_ext[: len(b_ext) // 2] - event.xdata).argmin()
+        def onclick(e: mpl.backend_bases.Event) -> None:
+            if e.inaxes == ax1:
                 ax2.cla()
-                if np.abs(m_avr[selector] - event.ydata) < np.abs(
-                    m_avr[len(m_avr) // 2 :][::-1][selector] - event.ydata
-                ):
-                    selector = selector
-                else:
-                    selector = len(b_ext) - selector
-                self.snapshot(dset, t=len(b_ext) - selector, ax=ax2)
-                vline.set_data(
-                    [b_ext[selector], b_ext[selector]],
-                    [-1, 1],
-                )
-                hline.set_data(
-                    [b_ext.min(), b_ext.max()],
-                    [m_avr[selector], m_avr[selector]],
-                )
+                i = get_closest_point_on_fig(e.xdata, e.ydata, x, y, fig)
+                self.snapshot(dset, t=i, ax=ax2)
+                ax2.set_title("")
+                vline.set_data([x[i], x[i]], [-1, 1])
+                hline.set_data([x.min(), x.max()], [y[i], y[i]])
                 fig.canvas.draw()
 
         fig.canvas.mpl_connect("button_press_event", onclick)
