@@ -188,7 +188,14 @@ def load_mpl_style(skip_style: bool = False) -> None:
         ipy.run_cell_magic(
             "html",
             "",
-            "<style> .cell-output-ipywidget-background {background-color: transparent !important;}</style>",
+            """<style>
+                .cell-output-ipywidget-background {
+                    background-color: transparent !important;
+                }
+                .jupyter-matplotlib-footer {
+                    color: white !important;
+                }
+               </style>""",
         )
         ipy.run_line_magic("matplotlib", "widget")
         ipy.run_line_magic("load_ext", "autoreload")
