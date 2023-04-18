@@ -121,12 +121,15 @@ class Pyzfn:
             avoid_copy=True,
         )
         save_wisdom(arr)
+        ychuncks = dset_in.chunks[2]
         for iy in trange(
-            dset_in.shape[2] // dset_in.chunks[2],
+            dset_in.shape[2] // ychuncks - 1,
             leave=False,
             desc=f"Calculating the dispersion for `{self.name}`",
         ):
-            arr[:] = dset_in[1:, 0, iy, 1:, :]
+            arr[:] = np.sum(
+                dset_in[1:, 0, iy * ychuncks : (iy + 1) * ychuncks, 1:, :], axis=2
+            )
             arr *= hann2d
             out = fft()
             out -= np.average(out, axis=(0, 1))[None, None, :]
