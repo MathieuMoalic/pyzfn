@@ -40,7 +40,15 @@ class Pyzfn:
         self.name: str = self.path.name.replace(self.path.suffix, "")
 
     def __getitem__(self, item: str) -> Union[zarr.Array, zarr.Group]:
-        return self.z[item]
+        if item in dir(self):
+            return getattr(self, item)
+        if item in dir(self.z):
+            return getattr(self.z, item)
+        if item in self.z.attrs:
+            return self.z.attrs[item]
+
+    def __setitem__(self, key, value):
+        self.z[key] = value
 
     def __getattr__(self, name: str) -> Union[zarr.Array, zarr.Group, int, float, str]:
         if name in dir(self):
