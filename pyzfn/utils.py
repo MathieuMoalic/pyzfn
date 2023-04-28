@@ -183,7 +183,7 @@ def get_slices(
 
 
 def load_mpl_style(skip_style: bool = False) -> None:
-    ipy = IPython.get_ipython()  # type: ignore
+    ipy = IPython.get_ipython()
     if ipy is not None:
         ipy.run_cell_magic(
             "html",

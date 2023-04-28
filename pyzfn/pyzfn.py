@@ -46,8 +46,10 @@ class Pyzfn:
             return getattr(self.z, item)
         if item in self.z.attrs:
             return self.z.attrs[item]
+        else:
+            raise NameError
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: str) -> None:
         self.z[key] = value
 
     def __getattr__(self, name: str) -> Union[zarr.Array, zarr.Group, int, float, str]:
