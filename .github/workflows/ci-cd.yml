@@ -1,0 +1,25 @@
+name: ci-cd
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  pypi-publish:
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyzfn
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+    steps:
+    - name: Install build
+      run: pip install build
+
+    - name: Build sdist and wheel
+      run: python -m build .
+      
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
