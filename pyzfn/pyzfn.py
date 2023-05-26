@@ -40,14 +40,12 @@ class Pyzfn:
         self.name: str = self.path.name.replace(self.path.suffix, "")
 
     def __getitem__(self, item: str) -> Union[zarr.Array, zarr.Group]:
-        if item in dir(self):
-            return getattr(self, item)
         if item in dir(self.z):
-            return getattr(self.z, item)
+            return self.z[item]
         if item in self.z.attrs:
             return self.z.attrs[item]
         else:
-            raise NameError
+            return self.z[item]
 
     def __setitem__(self, key: str, value: str) -> None:
         self.z[key] = value
@@ -107,12 +105,6 @@ class Pyzfn:
     def calc_disp(
         self, dset_in_str: str = "m", dset_out_str: str = "m", single_y: bool = False
     ) -> None:
-        """
-        Calculate the dispersion of `/dset_in_str` and saves it in `/disp/dset_out_str`
-        :param dset_in_str: str:  (Default value = "m")
-        :param dset_out_str: str:  (Default value = "m")
-
-        """
         dset_in: zarr.Array = self[dset_in_str]
         dset_out: str = f"disp/{dset_out_str}"
         self.rm(dset_out)
@@ -242,13 +234,53 @@ class Pyzfn:
                             progress.update()
         dset_fft[:] = np.max(np.array(fft_out), axis=0)
 
+    def simple_calc_modes(
+        self,
+        dset_in_str: str = "m",
+        dset_out_str: str = "m",
+        tmax: Optional[int] = None,
+        zslice: Optional[slice] = None,
+    ) -> None:
+        dset_in: zarr.Array = self[dset_in_str]
+        self.rm(f"modes/{dset_out_str}")
+        self.rm(f"fft/{dset_out_str}")
+        ts = dset_in.attrs["t"][:tmax]
+        freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
+        self.z.create_dataset(f"fft/{dset_out_str}/freqs", data=freqs, chunks=False)
+        self.z.create_dataset(f"modes/{dset_out_str}/freqs", data=freqs, chunks=False)
+        arr = dset_in[:tmax, zslice]
+        print("Input data shape:", arr.shape)
+        print("Input data size:", arr.nbytes / 1e9, "GB")
+        arr -= np.average(arr, axis=0)[None, ...]
+        arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
+        arr = np.fft.rfft(arr, axis=0)
+        self.z.create_dataset(
+            f"modes/{dset_out_str}/arr",
+            data=arr,
+            dtype=np.complex64,
+            chunks=(1, None, None, None, None),
+        )
+        arr = np.abs(arr)
+        arr = np.max(arr, axis=(1, 2, 3))
+        self.z.create_dataset(f"fft/{dset_out_str}/spec", chunks=False, data=arr)
+
     def get_mode(self, dset: str, f: float, c: Union[int, None] = None) -> np4d:
-        fi = int((np.abs(self[f"modes/{dset}/freqs"][:] - f)).argmin())
-        arr: np4d = self[f"modes/{dset}/arr"][fi]
-        if c is None:
-            return arr
+        if f"modes/{dset}/arr" in self.z:
+            fi = int((np.abs(self[f"modes/{dset}/freqs"][:] - f)).argmin())
+            arr: np4d = self[f"modes/{dset}/arr"][fi]
+            if c is None:
+                return arr
+            else:
+                return arr[..., c]
+        elif f"tmodes/{dset}/arr" in self.z:
+            fi = int((np.abs(self[f"tmodes/{dset}/freqs"][:] - f)).argmin())
+            arr: np4d = self[f"tmodes/{dset}/arr"][fi]
+            if c is None:
+                return arr
+            else:
+                return arr[..., c]
         else:
-            return arr[..., c]
+            raise ValueError("`modes` or `tmodes` not found.")
 
     def ispec(
         self,
@@ -258,6 +290,8 @@ class Pyzfn:
         fmin: float = 0,
         fmax: float = 40,
         c: int = 0,
+        log: bool = False,
+        z: int = 0,
     ) -> None:
         Peak = namedtuple("Peak", ["idx", "freq", "amp"])
 
@@ -287,7 +321,7 @@ class Pyzfn:
             for ax in axes.flatten():
                 ax.cla()
                 ax.set(xticks=[], yticks=[])
-            mode = self.get_mode("m", f)[0]
+            mode = self.get_mode("m", f)[z]
             extent = [
                 0,
                 mode.shape[1] * self.dx * 1e9,
@@ -300,9 +334,9 @@ class Pyzfn:
                 axes[0, c].imshow(
                     abs_arr,
                     cmap="inferno",
-                    # vmin=0,
-                    # vmax=mode_list_max,
-                    norm=mpl.colors.LogNorm(vmin=5e-3),
+                    vmin=0,
+                    vmax=abs_arr.max(),
+                    # norm=mpl.colors.LogNorm(vmin=5e-3),
                     extent=extent,
                     interpolation="None",
                     aspect="equal",
@@ -330,6 +364,10 @@ class Pyzfn:
         def get_spectrum() -> Tuple[np1d, np1d]:
             x = self[f"fft/{dset}/freqs"][:]
             y = self[f"fft/{dset}/spec"][:, c]
+            if log:
+                y = np.log(y)
+                y -= y.min()
+                y /= y.max()
             x1 = np.abs(x - fmin).argmin()
             x2 = np.abs(x - fmax).argmin()
             return x[x1:x2], y[x1:x2]
@@ -386,8 +424,8 @@ class Pyzfn:
         hsl[:, :, 1] = np.sqrt(u**2 + v**2 + z**2)
         hsl[:, :, 2] = (z + 1) / 2
         rgb = hsl2rgb(hsl)
-        stepx = max(int(u.shape[1] / 60), 1)
-        stepy = max(int(u.shape[0] / 60), 1)
+        stepx = max(int(u.shape[1] / 20), 1)
+        stepy = max(int(u.shape[0] / 20), 1)
         scale = 1 / max(stepx, stepy)
         x, y = np.meshgrid(
             np.arange(0, u.shape[1], stepx) * float(self.dx) * 1e9,
@@ -467,7 +505,9 @@ class Pyzfn:
             dtype=np.complex64,
         )
 
-    def ihist(self, dset: str = "m", xdata: str = "B_extz", ydata: str = "mz") -> None:
+    def ihist(
+        self, dset: str = "m", xdata: str = "B_extz", ydata: str = "mz", z: int = 0
+    ) -> None:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
         fig.subplots_adjust(bottom=0.16, top=0.94, right=0.99, left=0.08)
         x = self.z[f"table/{xdata}"][:]
@@ -483,7 +523,7 @@ class Pyzfn:
             if e.inaxes == ax1:
                 ax2.cla()
                 i = get_closest_point_on_fig(e.xdata, e.ydata, x, y, fig)
-                self.snapshot(dset, t=i, ax=ax2)
+                self.snapshot(dset, t=i, ax=ax2, z=z)
                 ax2.set_title("")
                 vline.set_data([x[i], x[i]], [-1, 1])
                 hline.set_data([x.min(), x.max()], [y[i], y[i]])
