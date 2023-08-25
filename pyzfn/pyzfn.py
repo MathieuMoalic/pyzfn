@@ -44,8 +44,10 @@ class Pyzfn:
             return self.z[item]
         if item in self.z.attrs:
             return self.z.attrs[item]
-        else:
+        if item in self.z.keys():
             return self.z[item]
+        else:
+            raise NameError(f"{self.path}: The dataset `{item}` does not exist.")
 
     def __setitem__(self, key: str, value: str) -> None:
         self.z[key] = value
@@ -57,7 +59,7 @@ class Pyzfn:
             return getattr(self.z, name)
         if name in self.z.attrs:
             return self.z.attrs[name]
-        raise KeyError(name)
+        raise NameError(f"{self.path}: The dataset `{name}` does not exist.")
 
     def __repr__(self) -> str:
         return f"Pyzfn('{self.name}')"
@@ -239,7 +241,7 @@ class Pyzfn:
         dset_in_str: str = "m",
         dset_out_str: str = "m",
         tmax: Optional[int] = None,
-        zslice: Optional[slice] = None,
+        zslice: slice = slice(None),
     ) -> None:
         dset_in: zarr.Array = self[dset_in_str]
         self.rm(f"modes/{dset_out_str}")
@@ -249,8 +251,8 @@ class Pyzfn:
         self.z.create_dataset(f"fft/{dset_out_str}/freqs", data=freqs, chunks=False)
         self.z.create_dataset(f"modes/{dset_out_str}/freqs", data=freqs, chunks=False)
         arr = dset_in[:tmax, zslice]
-        print("Input data shape:", arr.shape)
-        print("Input data size:", arr.nbytes / 1e9, "GB")
+        # print("Input data shape:", arr.shape)
+        # print("Input data size:", arr.nbytes / 1e9, "GB")
         arr -= np.average(arr, axis=0)[None, ...]
         arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
         arr = np.fft.rfft(arr, axis=0)
@@ -261,8 +263,12 @@ class Pyzfn:
             chunks=(1, None, None, None, None),
         )
         arr = np.abs(arr)
-        arr = np.max(arr, axis=(1, 2, 3))
-        self.z.create_dataset(f"fft/{dset_out_str}/spec", chunks=False, data=arr)
+        self.z.create_dataset(
+            f"fft/{dset_out_str}/spec", chunks=False, data=np.max(arr, axis=(1, 2, 3))
+        )
+        self.z.create_dataset(
+            f"fft/{dset_out_str}/sum", chunks=False, data=np.sum(arr, axis=(1, 2, 3))
+        )
 
     def get_mode(self, dset: str, f: float, c: Union[int, None] = None) -> np4d:
         if f"modes/{dset}/arr" in self.z:
