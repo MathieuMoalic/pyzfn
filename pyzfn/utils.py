@@ -1,6 +1,7 @@
 import os
 import pickle
 import struct
+import colorsys
 from typing import List, Optional, Tuple, Dict
 
 import matplotlib as mpl
@@ -207,7 +208,7 @@ def load_mpl_style(skip_style: bool = False) -> None:
         Canvas.footer_visible.default_value = True
     if not skip_style:
         plt.style.use(matplotx.styles.dracula)
-        plt.rcParams["figure.figsize"] = [14, 5]
+        plt.rcParams["figure.figsize"] = [10, 5]
         plt.rcParams["figure.autolayout"] = True
         # plt.rcParams["axes.grid"] = True
         plt.rcParams["axes.grid.axis"] = "both"
@@ -277,6 +278,18 @@ def hsl2rgb(hsl: NDArray[Shape["*,*,3"], Float32]) -> NDArray[Shape["*,*,3"], Fl
         rgb[..., i] = l - a * k
     rgb = np.clip(rgb, 0, 1)
     return rgb
+
+
+def rgb2hsl(rgb):
+    hsl = np.ones_like(rgb)
+    for i in range(rgb.shape[0]):
+        for j in range(rgb.shape[1]):
+            r, g, b = rgb[i, j]
+            h, l, s = colorsys.rgb_to_hls(r, g, b)
+            hsl[i, j, 0] = h
+            hsl[i, j, 1] = s
+            hsl[i, j, 2] = l
+    return hsl
 
 
 def get_closest_point_on_fig(
