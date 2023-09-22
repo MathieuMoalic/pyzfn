@@ -412,9 +412,9 @@ class Pyzfn:
         zero: Optional[bool] = None,
     ) -> plt.Axes:
         if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize=(6, 6), dpi=100)
-        else:
-            fig = ax.figure
+            _, ax = plt.subplots(1, 1, figsize=(6, 6), dpi=100)
+        # else:
+        #     fig = ax.figure
         arr = self[dset][t, z, :, :, :]
         if zero is not None:
             arr -= self[dset][zero, z, :, :, :]
@@ -453,6 +453,7 @@ class Pyzfn:
             rgb,
             interpolation="None",
             origin="lower",
+            aspect="equal",
             cmap="hsv",
             vmin=-np.pi,
             vmax=np.pi,
@@ -463,20 +464,23 @@ class Pyzfn:
                 rgb.shape[0] * float(self.dy) * 1e9,
             ],
         )
-        ax.imshow(
+        cs = ax.contourf(
             antidots,
-            interpolation="None",
-            origin="lower",
-            cmap="Set1_r",
+            levels=[-1e-7, 1e-7],
+            hatches=["///////"],
+            colors=["w"],
             extent=[
                 0,
-                arr.shape[1] * float(self.dx) * 1e9,
+                rgb.shape[1] * float(self.dx) * 1e9,
                 0,
-                arr.shape[0] * float(self.dy) * 1e9,
+                rgb.shape[0] * float(self.dy) * 1e9,
             ],
         )
+        for collection in cs.collections:
+            collection.set_edgecolor("#dddddd")
+            collection.set_linewidth(0.0)
         ax.set(title=self.name, xlabel="x (nm)", ylabel="y (nm)")
-        fig.tight_layout()
+        # fig.tight_layout()
         return ax
 
     def trim_modes(
@@ -486,7 +490,7 @@ class Pyzfn:
         dset_in = self.z[f"modes/{dset_in_str}/arr"]
         all_peaks = []
         for c in range(3):
-            spec = self.z.fft.m.spec[peak_xcut_min:, c]
+            spec = self.z["fft/m/spec"][peak_xcut_min:, c]
             peaks = []
             for thres in np.linspace(0.1, 0.001):
                 peaks = peakutils.indexes(spec / spec.max(), thres=thres, min_dist=2)
