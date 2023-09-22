@@ -215,8 +215,6 @@ def load_mpl_style(skip_style: bool = False) -> None:
 
 
 def save_current_mplstyle(path: str) -> None:
-    from matplotlib import pyplot as plt
-
     newlines = []
     for k, v in plt.rcParams.items():
         if k in [
@@ -260,7 +258,7 @@ def save_current_mplstyle(path: str) -> None:
             v = "tight"
         newlines.append(k + ": " + v + "\n")
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.writelines(newlines)
 
 
@@ -280,7 +278,7 @@ def hsl2rgb(hsl: NDArray[Shape["*,*,3"], Float32]) -> NDArray[Shape["*,*,3"], Fl
     return rgb
 
 
-def rgb2hsl(rgb):
+def rgb2hsl(rgb: np3d) -> np3d:
     hsl = np.ones_like(rgb)
     for i in range(rgb.shape[0]):
         for j in range(rgb.shape[1]):

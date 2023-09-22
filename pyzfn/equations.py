@@ -1,6 +1,6 @@
+from typing import Union
 import numpy as np
 from nptyping import Float32, NDArray, Shape
-from typing import Union
 
 np1d = NDArray[Shape["*"], Float32]
 optnp1d = Union[np1d, float, int]
@@ -102,7 +102,6 @@ def kalinikos(
     # Something wrong
     print("This function needs fixing, frequencies are wrong")
     gamma = 87.9447e9 * g
-    MU0 = np.pi * 4e-07
     H0 = B / MU0
     wM = gamma * MU0 * Ms
     Hanis = 2 * Ku / Ms / MU0
