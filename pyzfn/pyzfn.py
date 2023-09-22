@@ -464,21 +464,22 @@ class Pyzfn:
                 rgb.shape[0] * float(self.dy) * 1e9,
             ],
         )
-        cs = ax.contourf(
-            antidots,
-            levels=[-1e-7, 1e-7],
-            hatches=["///////"],
-            colors=["w"],
-            extent=[
-                0,
-                rgb.shape[1] * float(self.dx) * 1e9,
-                0,
-                rgb.shape[0] * float(self.dy) * 1e9,
-            ],
-        )
-        for collection in cs.collections:
-            collection.set_edgecolor("#dddddd")
-            collection.set_linewidth(0.0)
+        if 1 not in antidots.shape:
+            cs = ax.contourf(
+                antidots,
+                levels=[-1e-7, 1e-7],
+                hatches=["///////"],
+                colors=["w"],
+                extent=[
+                    0,
+                    rgb.shape[1] * float(self.dx) * 1e9,
+                    0,
+                    rgb.shape[0] * float(self.dy) * 1e9,
+                ],
+            )
+            for collection in cs.collections:
+                collection.set_edgecolor("#dddddd")
+                collection.set_linewidth(0.0)
         ax.set(title=self.name, xlabel="x (nm)", ylabel="y (nm)")
         # fig.tight_layout()
         return ax
