@@ -276,15 +276,13 @@ class Pyzfn:
             arr: np4d = self[f"modes/{dset}/arr"][fi]
             if c is None:
                 return arr
-            else:
-                return arr[..., c]
+            return arr[..., c]
         elif f"tmodes/{dset}/arr" in self.z:
             fi = int((np.abs(self[f"tmodes/{dset}/freqs"][:] - f)).argmin())
             arr: np4d = self[f"tmodes/{dset}/arr"][fi]
             if c is None:
                 return arr
-            else:
-                return arr[..., c]
+            return arr[..., c]
         else:
             raise ValueError("`modes` or `tmodes` not found.")
 
