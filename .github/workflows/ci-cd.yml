@@ -72,8 +72,7 @@ jobs:
 
       - name: Extract version from response
         run: |
-          VERSION_DATA="${{ steps.latest_release.outputs.response }}"
-          VERSION=$(echo $VERSION_DATA | jq -r '.info.version')
+          VERSION=$(echo '${{ steps.latest_release.outputs.response }}' | jq -r '.info.version')
           echo "Latest PyPI version is $VERSION"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
