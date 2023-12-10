@@ -1,8 +1,10 @@
 name: Test, build and publish pyzfn
 
 on:
-  - push
-  - pull_request
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   test:
@@ -53,6 +55,29 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install build
+
+      - name: Get version from setup.cfg
+        id: get_version
+        run: |
+          echo "VERSION=$(python -c 'import configparser; config = configparser.ConfigParser(); config.read(\"setup.cfg\"); print(config[\"metadata\"][\"version\"])')" >> $GITHUB_ENV
+          echo "Version found: ${{ env.VERSION }}"
+
+      - name: Get latest release version
+        id: latest_release
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const response = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            return response.data.tag_name;
+    
+      - name: Compare versions and create a new tag if needed
+        if: steps.get_version.outputs.version != steps.latest_release.outputs.result
+        run: |
+          git tag v${{ env.VERSION }}
+          git push origin v${{ env.VERSION }}
 
       - name: Build package
         run: python -m build
