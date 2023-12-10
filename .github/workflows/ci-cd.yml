@@ -58,7 +58,11 @@ jobs:
       - name: Get version from setup.cfg
         id: get_version
         run: |
-          echo "VERSION=$(python -c 'import configparser; config = configparser.ConfigParser(); config.read(\"setup.cfg\"); print(config[\"metadata\"][\"version\"])')" >> $GITHUB_ENV
+          echo "VERSION=$(python -c 'import configparser; config = configparser.ConfigParser(); config.read("setup.cfg"); print(config["metadata"]["version"])')" >> $GITHUB_ENV
+          if [ -z "$VERSION" ]; then
+            echo "Error: VERSION is not set or is empty."
+            exit 1  # Exit with a non-zero code to indicate an error
+          fi
           echo "Version found: ${{ env.VERSION }}"
 
       - name: Get latest release version
