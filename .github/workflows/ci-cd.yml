@@ -68,16 +68,27 @@ jobs:
             echo "Version found: ${{ env.VERSION }}"
           fi
 
-      - name: Get latest release version
+      - name: Get latest release version from PyPI
         id: latest_release
         uses: actions/github-script@v5
         with:
           script: |
-            const response = await github.rest.repos.getLatestRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            return response.data.tag_name;
+            const axios = require('axios');
+            const packageName = context.repo.repo;  // Use the GitHub repository name
+
+            async function getLatestVersionFromPyPI(packageName) {
+              const url = `https://pypi.org/pypi/${packageName}/json`;
+              try {
+                const response = await axios.get(url);
+                return response.data.info.version;
+              } catch (error) {
+                console.error(`Error fetching data from PyPI for ${packageName}:`, error);
+                return null;
+              }
+            }
+
+            return await getLatestVersionFromPyPI(packageName);
+
     
       - name: Compare versions and create a new tag if needed
         if: steps.get_version.outputs.version != steps.latest_release.outputs.result
