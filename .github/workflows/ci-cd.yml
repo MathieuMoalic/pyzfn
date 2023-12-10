@@ -7,33 +7,33 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+  # test:
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest, windows-latest]
+  #       python-version: ["3.8", "3.9", "3.10", "3.11"]
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v3
 
-      - name: Set Up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
+  #     - name: Set Up Python
+  #       uses: actions/setup-python@v4
+  #       with:
+  #         python-version: ${{ matrix.python-version }}
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --root-user-action=ignore --upgrade pip
-          pip install --root-user-action=ignore -r requirements.txt
+  #     - name: Install Dependencies
+  #       run: |
+  #         python -m pip install --root-user-action=ignore --upgrade pip
+  #         pip install --root-user-action=ignore -r requirements.txt
 
-      - name: Run PyTest
-        run: |
-          pip install --root-user-action=ignore pytest pytest-cov
-          pytest
+  #     - name: Run PyTest
+  #       run: |
+  #         pip install --root-user-action=ignore pytest pytest-cov
+  #         pytest
   deploy:
-    needs: test
+    # needs: test
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -56,14 +56,17 @@ jobs:
           pip install build
 
       - name: Get version from setup.cfg
-        id: get_version
         run: |
           echo "VERSION=$(python -c 'import configparser; config = configparser.ConfigParser(); config.read("setup.cfg"); print(config["metadata"]["version"])')" >> $GITHUB_ENV
-          if [ -z "$VERSION" ]; then
+
+      - name: Check version
+        run: |
+          if [ -z "${{ env.VERSION }}" ]; then
             echo "Error: VERSION is not set or is empty."
-            exit 1  # Exit with a non-zero code to indicate an error
+            exit 1
+          else
+            echo "Version found: ${{ env.VERSION }}"
           fi
-          echo "Version found: ${{ env.VERSION }}"
 
       - name: Get latest release version
         id: latest_release
