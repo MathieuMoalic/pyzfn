@@ -68,28 +68,28 @@ jobs:
             echo "Version found: ${{ env.VERSION }}"
           fi
 
-    - name: Get latest release version from PyPI
-      id: latest_release
-      uses: actions/github-script@v5
-      with:
-        script: |
-          const { Octokit } = require("@actions/github");
-          const octokit = new Octokit();
-          const packageName = context.repo.repo;
+      - name: Get latest release version from PyPI
+        id: latest_release
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const { Octokit } = require("@actions/github");
+            const octokit = new Octokit();
+            const packageName = context.repo.repo;
 
-          async function getLatestVersionFromPyPI(packageName) {
-            const url = `https://pypi.org/pypi/${packageName}/json`;
-            try {
-              const response = await octokit.request('GET ' + url);
-              const data = response.data;
-              return data.info.version;
-            } catch (error) {
-              console.error(`Error fetching data from PyPI for ${packageName}:`, error);
-              return null;
+            async function getLatestVersionFromPyPI(packageName) {
+              const url = `https://pypi.org/pypi/${packageName}/json`;
+              try {
+                const response = await octokit.request('GET ' + url);
+                const data = response.data;
+                return data.info.version;
+              } catch (error) {
+                console.error(`Error fetching data from PyPI for ${packageName}:`, error);
+                return null;
+              }
             }
-          }
 
-          return await getLatestVersionFromPyPI(packageName);
+            return await getLatestVersionFromPyPI(packageName);
 
    
       - name: Compare versions and create a new tag if needed
