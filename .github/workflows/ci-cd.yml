@@ -59,39 +59,24 @@ jobs:
         run: |
           echo "VERSION=$(python -c 'import configparser; config = configparser.ConfigParser(); config.read("setup.cfg"); print(config["metadata"]["version"])')" >> $GITHUB_ENV
 
-      - name: Check version
+      - name: Get package name from setup.cfg
         run: |
-          if [ -z "${{ env.VERSION }}" ]; then
-            echo "Error: VERSION is not set or is empty."
-            exit 1
-          else
-            echo "Version found: ${{ env.VERSION }}"
-          fi
+          echo "PACKAGE_NAME=$(python -c 'import configparser; config = configparser.ConfigParser(); config.read("setup.cfg"); print(config["metadata"]["name"])')" >> $GITHUB_ENV
 
       - name: Get latest release version from PyPI
         id: latest_release
-        uses: actions/github-script@v5
+        uses: fjogeleit/http-request-action@master
         with:
-          script: |
-            const { Octokit } = require("@actions/github");
-            const octokit = new Octokit();
-            const packageName = context.repo.repo;
+          url: "https://pypi.org/pypi/${{ env.PACKAGE_NAME }}/json"
+          method: "GET"
 
-            async function getLatestVersionFromPyPI(packageName) {
-              const url = `https://pypi.org/pypi/${packageName}/json`;
-              try {
-                const response = await octokit.request('GET ' + url);
-                const data = response.data;
-                return data.info.version;
-              } catch (error) {
-                console.error(`Error fetching data from PyPI for ${packageName}:`, error);
-                return null;
-              }
-            }
+      - name: Extract version from response
+        run: |
+          VERSION_DATA="${{ steps.latest_release.outputs.response }}"
+          VERSION=$(echo $VERSION_DATA | jq -r '.info.version')
+          echo "Latest PyPI version is $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-            return await getLatestVersionFromPyPI(packageName);
-
-   
       - name: Compare versions and create a new tag if needed
         if: steps.get_version.outputs.version != steps.latest_release.outputs.result
         run: |
