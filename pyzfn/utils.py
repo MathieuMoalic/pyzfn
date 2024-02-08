@@ -196,6 +196,10 @@ def load_mpl_style(skip_style: bool = False) -> None:
                 .jupyter-matplotlib-footer {
                     color: white !important;
                 }
+                :root {
+                    --jp-widgets-color: var(--vscode-editor-foreground);
+                    --jp-widgets-font-size: var(--vscode-editor-font-size);
+                }  
                </style>""",
         )
         ipy.run_line_magic("matplotlib", "widget")
