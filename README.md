@@ -25,9 +25,9 @@ job.p # not pretty print, but does not need a widget
 # Getting simulation metadata:
 # json file located at path/to/job.zarr/.attrs
 # You can acces it like a python dict:
-dt = job.attrs["dt"]
+dx = job.attrs["dx"]
 # or as a class attribute (given that you have no dataset named similarly):
-dt = job.dt
+dx = job.dx
 
 # Get data you saved in amumax:
 # Ex: the x component of the magnetization for all cells for 10 <= t < 20
