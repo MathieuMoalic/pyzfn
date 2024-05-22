@@ -7,7 +7,7 @@ exclude = ["htmlcov"]
 
 [project]
 name = "pyzfn"
-version = "0.1.9"
+version = "0.1.10"
 description = "micromagnetic post processing library"
 authors = [
     { name = "Mathieu Moalic", email = "matmoa@amu.edu.pl" },
