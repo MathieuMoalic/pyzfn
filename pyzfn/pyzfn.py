@@ -15,11 +15,11 @@ from nptyping import Float32, NDArray, Shape
 from tqdm import tqdm, trange
 
 from .utils import (
+    get_closest_point_on_fig,
     get_slices,
     hsl2rgb,
     load_wisdom,
     save_wisdom,
-    get_closest_point_on_fig,
 )
 
 np1d = NDArray[Shape["*"], Float32]
@@ -409,15 +409,13 @@ class Pyzfn:
         repeat: int = 1,
         zero: Optional[bool] = None,
     ) -> plt.Axes:
-        if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(6, 6), dpi=100)
-        # else:
-        #     fig = ax.figure
         arr = self[dset][t, z, :, :, :]
+        if ax is None:
+            shape_ratio = arr.shape[1] / arr.shape[0]
+            fig, ax = plt.subplots(1, 1, figsize=(3 * shape_ratio, 3), dpi=100)
         if zero is not None:
             arr -= self[dset][zero, z, :, :, :]
         arr = np.tile(arr, (repeat, repeat, 1))
-        arr = np.ma.masked_equal(arr, 0)
         u = arr[:, :, 0]
         v = arr[:, :, 1]
         z = arr[:, :, 2]
@@ -462,24 +460,7 @@ class Pyzfn:
                 rgb.shape[0] * float(self.dy) * 1e9,
             ],
         )
-        if 1 not in antidots.shape:
-            cs = ax.contourf(
-                antidots,
-                levels=[-1e-7, 1e-7],
-                hatches=["///////"],
-                colors=["w"],
-                extent=[
-                    0,
-                    rgb.shape[1] * float(self.dx) * 1e9,
-                    0,
-                    rgb.shape[0] * float(self.dy) * 1e9,
-                ],
-            )
-            for collection in cs.collections:
-                collection.set_edgecolor("#dddddd")
-                collection.set_linewidth(0.0)
         ax.set(title=self.name, xlabel="x (nm)", ylabel="y (nm)")
-        # fig.tight_layout()
         return ax
 
     def trim_modes(
@@ -517,7 +498,7 @@ class Pyzfn:
     def ihist(
         self, dset: str = "m", xdata: str = "B_extz", ydata: str = "mz", z: int = 0
     ) -> None:
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
         fig.subplots_adjust(bottom=0.16, top=0.94, right=0.99, left=0.08)
         x = self.z[f"table/{xdata}"][:]
         y = self.z[f"table/{ydata}"][:]
@@ -527,6 +508,7 @@ class Pyzfn:
         selector = x.shape[0] // 4
         vline = ax1.axvline(x[selector], c="gray", ls=":")
         hline = ax1.axhline(y[selector], c="gray", ls=":")
+        ax1.grid()
 
         def onclick(e: mpl.backend_bases.Event) -> None:
             if e.inaxes == ax1:
