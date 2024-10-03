@@ -325,7 +325,7 @@ class Pyzfn:
             for ax in axes.flatten():
                 ax.cla()
                 ax.set(xticks=[], yticks=[])
-            mode = self.get_mode("m", f)[z]
+            mode = self.get_mode(dset, f)[z]
             extent = [
                 0,
                 mode.shape[1] * self.dx * 1e9,
