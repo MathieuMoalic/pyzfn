@@ -25,7 +25,7 @@
 
           shellHook = ''
             set -euo pipefail
-            test -d .venv || (${pkgs.python3.interpreter} -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && fix-python --venv .venv && echo "use flake" > .envrc && direnv allow)
+            test -d .venv || (${pkgs.python3.interpreter} -m venv .venv && source .venv/bin/activate && pip install -e . && fix-python --venv .venv && echo "use flake" > .envrc && direnv allow)
             source .venv/bin/activate
           '';
         };

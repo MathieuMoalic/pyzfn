@@ -12,7 +12,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
 
     steps:
       - name: Checkout Repository
@@ -21,7 +20,7 @@ jobs:
       - name: Set Up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
 
       - name: Install Dependencies
         run: |
@@ -40,6 +39,8 @@ jobs:
       name: pypi
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+    env:
+      PUBLISHING: false
 
     steps:
       - name: Checkout Repository
