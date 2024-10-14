@@ -7,7 +7,6 @@ from typing import List, Optional, Tuple, Union
 
 import matplotlib as mpl
 import numpy as np
-import peakutils
 import pyfftw
 import zarr
 from matplotlib import pyplot as plt
@@ -18,6 +17,7 @@ from .utils import (
     get_closest_point_on_fig,
     get_slices,
     hsl2rgb,
+    indexes,
     load_wisdom,
     save_wisdom,
 )
@@ -300,7 +300,7 @@ class Pyzfn:
         Peak = namedtuple("Peak", ["idx", "freq", "amp"])
 
         def get_peaks(x: np1d, y: np1d) -> List[Peak]:
-            idx = peakutils.indexes(y, thres=thres, min_dist=min_dist)
+            idx = indexes(y, thres=thres, min_dist=min_dist)
             peak_amp = [y[i] for i in idx]
             freqs = [x[i] for i in idx]
             return [Peak(i, f, a) for i, f, a in zip(idx, freqs, peak_amp)]
@@ -473,7 +473,7 @@ class Pyzfn:
             spec = self.z["fft/m/spec"][peak_xcut_min:, c]
             peaks = []
             for thres in np.linspace(0.1, 0.001):
-                peaks = peakutils.indexes(spec / spec.max(), thres=thres, min_dist=2)
+                peaks = indexes(spec / spec.max(), thres=thres, min_dist=2)
                 if len(peaks) > 25:
                     break
             if len(peaks) == 0:

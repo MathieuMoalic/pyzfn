@@ -27,7 +27,6 @@ dependencies = [
     "zarr>=2.13",
     "pyfftw>=0.13",
     "nptyping>=2.4",
-    "peakutils>=1.3",
     "matplotx>=0.3",
 ]
 classifiers = [
