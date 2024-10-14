@@ -1,4 +1,5 @@
 from typing import Union
+
 import numpy as np
 from nptyping import Float32, NDArray, Shape
 
@@ -13,7 +14,7 @@ def kittel(
 ) -> optnp1d:
     # this might be for inplane
     gamma: optnp1d = 87.9447e9 * g
-    A: optnp1d = B * (B + Ms * MU0 - 2 * Ku / Ms)
+    A = B * (B + Ms * MU0 - 2 * Ku / Ms)
     A = np.where(A < 0, 0, A)
     out: optnp1d = gamma * np.sqrt(A) / (2 * np.pi)
     return out
@@ -72,11 +73,7 @@ def kim(
         * (
             gamma
             * np.sqrt(
-                (
-                    B
-                    + 2 * Aex * k**2 / Ms
-                    + MU0 * Ms * thickness * kx**2 / np.abs(k) / 2
-                )
+                (B + 2 * Aex * k**2 / Ms + MU0 * Ms * thickness * kx**2 / np.abs(k) / 2)
                 * (
                     B
                     + 2 * Aex * k**2 / Ms
