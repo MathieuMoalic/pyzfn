@@ -311,6 +311,7 @@ class Pyzfn:
         dset_out_str: str = "m",
         tmax: Optional[int] = None,
         zslice: slice = slice(None),
+        window: bool = True,
     ) -> None:
         dset_in = self.get_dset(dset_in_str)
         self.rm(f"modes/{dset_out_str}")
@@ -321,7 +322,8 @@ class Pyzfn:
         self.z.create_dataset(f"modes/{dset_out_str}/freqs", data=freqs, chunks=False)
         arr = np.asarray(dset_in[:tmax, zslice])
         arr -= arr.mean(axis=0)[None, ...]
-        arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
+        if window:
+            arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
         arr = np.fft.rfft(arr, axis=0)
         self.z.create_dataset(
             f"modes/{dset_out_str}/arr",
