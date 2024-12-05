@@ -41,6 +41,7 @@ addopts = "-v -p no:warnings --cov=pyzfn --cov-report=html --doctest-modules "
 testpaths = ["tests"]
 
 [tool.mypy]
+disable_error_code = "unused-ignore"
 mypy_path = "pyzfn"
 check_untyped_defs = true
 disallow_any_generics = true
