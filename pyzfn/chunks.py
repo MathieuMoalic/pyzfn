@@ -156,3 +156,55 @@ def get_zarr_chunk_slices(
     # Generate all combinations of slices
     all_slices = list(itertools.product(*dim_slices))
     return all_slices
+
+
+def calculate_largest_slice_points(
+    slice_combinations: List[Tuple[slice, ...]], shape: Tuple[int, ...]
+) -> int:
+    """
+    Given a list of slice combinations and the shape of the Zarr array,
+    this function calculates the number of points in the largest tuple of slices.
+
+    Parameters:
+    ----------
+    slice_combinations : List[Tuple[slice, ...]]
+        A list of slice tuples, where each tuple corresponds to a combination of slices for each dimension.
+
+    shape : Tuple[int, ...]
+        The shape of the Zarr array.
+
+    Returns:
+    -------
+    int
+        The number of points (elements) in the largest tuple of slices.
+    """
+
+    def calculate_points_in_tuple(slice_tuple: Tuple[slice, ...]) -> int:
+        """
+        Calculate the total number of elements covered by a given tuple of slices.
+
+        Parameters:
+        ----------
+        slice_tuple : Tuple[slice, ...]
+            A tuple of slices, one for each dimension.
+
+        Returns:
+        -------
+        int
+            The total number of elements covered by the tuple of slices.
+        """
+        total_points = 1
+        for dim, s in enumerate(slice_tuple):
+            # Calculate the size of the slice for this dimension
+            start, stop, step = s.indices(shape[dim])
+            dim_points = (stop - start) // step
+            total_points *= dim_points
+        return total_points
+
+    # Calculate the points for each combination of slices
+    largest_points = 0
+    for slice_tuple in slice_combinations:
+        points = calculate_points_in_tuple(slice_tuple)
+        largest_points = max(largest_points, points)
+
+    return largest_points

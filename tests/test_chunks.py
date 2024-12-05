@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import zarr
 
-from pyzfn.chunks import get_zarr_chunk_slices  # Update the import path as necessary
+from pyzfn.chunks import calculate_largest_slice_points, get_zarr_chunk_slices
 
 
 def create_zarr_array(shape: Tuple[int, ...], chunks: Tuple[int, ...]) -> zarr.Array:
@@ -217,3 +217,69 @@ def test_multiple_no_chunk_dims() -> None:
         (slice(1, 4), slice(4, 6), slice(4, 9)),
     ]
     assert slices_result == expected_slices
+
+
+def test_single_slice_1d() -> None:
+    slice_combinations: List[Tuple[slice, ...]] = [(slice(0, 5),)]
+    shape = (10,)
+    result = calculate_largest_slice_points(slice_combinations, shape)
+    expected = 5  # One slice covering the first 5 elements
+    assert result == expected
+
+
+def test_multiple_slices_1d() -> None:
+    slice_combinations: List[Tuple[slice, ...]] = [(slice(0, 5),), (slice(5, 10),)]
+    shape = (10,)
+    result = calculate_largest_slice_points(slice_combinations, shape)
+    expected = 5  # The largest slice covers 5 elements
+    assert result == expected
+
+
+def test_multiple_slices_2d() -> None:
+    slice_combinations: List[Tuple[slice, ...]] = [
+        (slice(0, 5), slice(0, 5)),
+        (slice(5, 10), slice(0, 5)),
+        (slice(0, 5), slice(5, 10)),
+        (slice(5, 10), slice(5, 10)),
+    ]
+    shape = (10, 10)
+    result = calculate_largest_slice_points(slice_combinations, shape)
+    expected = 25  # The largest slice combination is 5x5 = 25 points
+    assert result == expected
+
+
+def test_multiple_slices_3d() -> None:
+    slice_combinations: List[Tuple[slice, ...]] = [
+        (slice(0, 5), slice(0, 5), slice(0, 5)),
+        (slice(5, 10), slice(0, 5), slice(0, 5)),
+        (slice(0, 5), slice(5, 10), slice(0, 5)),
+        (slice(0, 5), slice(0, 5), slice(5, 10)),
+    ]
+    shape = (10, 10, 10)
+    result = calculate_largest_slice_points(slice_combinations, shape)
+    expected = 125  # The largest slice combination is 5x5x5 = 125 points
+    assert result == expected
+
+
+def test_empty_slice_combinations() -> None:
+    slice_combinations: List[Tuple[slice, ...]] = []
+    shape = (10,)
+    result = calculate_largest_slice_points(slice_combinations, shape)
+    expected = 0  # No slices, so 0 points
+    assert result == expected
+
+
+def test_slice_with_step() -> None:
+    slice_combinations: List[Tuple[slice, ...]] = [(slice(0, 10, 2),)]
+    shape = (10,)
+    result = calculate_largest_slice_points(slice_combinations, shape)
+    expected = 5  # Slice with step 2 covers every other element (0, 2, 4, 6, 8)
+    assert result == expected, f"Expected {expected}, but got {result}"
+
+
+def test_single_point_slice() -> None:
+    slice_combinations: List[Tuple[slice, ...]] = [(slice(5, 6),)]
+    shape = (10,)
+    result = calculate_largest_slice_points(slice_combinations, shape)
+    expected = 1  # Single point slice (5,)
+    assert result == expected, f"Expected {expected}, but got {result}"
