@@ -15,9 +15,11 @@ from nptyping import Complex64, Float32, NDArray, Shape
 from tqdm import tqdm, trange
 from zarr.util import TreeViewer
 
+from pyzfn.chunks import get_zarr_chunk_slices
+
 from .utils import (
+    check_memory,
     get_closest_point_on_fig,
-    get_slices,
     hsl2rgb,
     indexes,
     load_wisdom,
@@ -218,92 +220,56 @@ class Pyzfn:
         self,
         dset_in_str: str = "m",
         dset_out_str: str = "m",
-        slices: Tuple[slice, slice, slice, slice, slice] = (
-            slice(None),
-            slice(None),
-            slice(None),
-            slice(None),
-            slice(None),
-        ),
+        tslice: slice = slice(None),
+        xslice: slice = slice(None),
+        yslice: slice = slice(None),
+        zslice: slice = slice(None),
+        cslice: slice = slice(None),
+        window: bool = True,
+        force: bool = False,
+        modes_chunks: Tuple[Optional[int], ...] = (1, None, None, None, None),
     ) -> None:
-        """
-        Calculate the spin wave spectra and also the mode profiles of `/dset_in_str`
-        and saves it in `/disp/dset_out_str`
-        :param dset_in_str: str:  (Default value = "m")
-        :param dset_out_str: str:  (Default value = "m")
-
-        """
         dset_in = self.get_dset(dset_in_str)
+        if dset_in.ndim != 5:
+            raise ValueError("The dataset must be 5D")
+        slices5D = get_zarr_chunk_slices(
+            zarr_array=dset_in,
+            no_chunk_dims=(0,),
+            slices=(tslice, xslice, yslice, zslice, cslice),
+        )
+        print(check_memory(slices5D, dset_in.shape, force))
+
         self.rm(f"modes/{dset_out_str}")
         self.rm(f"fft/{dset_out_str}")
-        st, sz, sy, sx, sc = dset_in.shape
-        _, cz, cy, cx, cc = dset_in.chunks
-        ts = dset_in.attrs["t"][:]
+
+        ts = dset_in.attrs["t"][tslice]
         freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
-        lenf = freqs.shape[0]
         self.z.create_dataset(f"fft/{dset_out_str}/freqs", data=freqs, chunks=False)
-        dset_fft = self.z.create_dataset(
-            f"fft/{dset_out_str}/spec", shape=(lenf, 3), chunks=False
-        )
         self.z.create_dataset(f"modes/{dset_out_str}/freqs", data=freqs, chunks=False)
-        dset_modes = self.z.create_dataset(
+        modes_dst = self.z.create_dataset(
             f"modes/{dset_out_str}/arr",
-            shape=(lenf, sz, sy, sx, sc),
+            chunks=modes_chunks,
+            shape=dset_in.shape,
             dtype=np.complex64,
-            chunks=(50, cz, cy, cx, cc),
         )
-        x0 = pyfftw.empty_aligned((st, cz, cy, cx, cc), dtype=np.complex64)
-        load_wisdom(x0)
-        fft = pyfftw.builders.fft(
-            x0,
-            axis=0,
-            threads=mp.cpu_count() // 2,
-            planner_effort="FFTW_ESTIMATE",
-            avoid_copy=True,
+        fft_max = np.zeros((len(ts), 3), dtype=np.float32)
+        fft_sum = np.zeros((len(ts), 3), dtype=np.float32)
+        for slice5D in tqdm(slices5D, desc=f"Calculating modes for `{self.name}`"):
+            arr = dset_in[slice5D]
+            arr -= arr.mean(axis=0)[None, ...]
+            if window:
+                arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
+            arr = np.fft.rfft(arr, axis=0)
+            modes_dst[(slice(len(freqs)),) + slice5D[1:]] = arr
+            arr = np.abs(arr)
+            fft_max += np.max(arr, axis=(1, 2, 3))
+            fft_sum += np.sum(arr, axis=(1, 2, 3))
+        self.z.create_dataset(
+            f"fft/{dset_out_str}/max", chunks=False, data=fft_max, dtype=np.float32
         )
-        save_wisdom(x0)
-        fft_out = []
-        shape = dset_in.shape
-        if not (
-            isinstance(shape, tuple)
-            and len(shape) == 5
-            and all(isinstance(dim, int) for dim in shape)
-        ):
-            raise ValueError("shape must be a tuple of 5 integers")
-
-        zsls, ysls, xsls, csls = get_slices(shape, dset_in.chunks, slices)
-        chunk_nb = len(zsls) * len(ysls) * len(xsls) * len(csls)
-        # import time
-
-        # print(dset_in.chunks)
-        with tqdm(total=chunk_nb, desc="Calculating SW modes", leave=False) as progress:
-            for zsl in zsls:
-                for ysl in ysls:
-                    for xsl in xsls:
-                        for csl in csls:
-                            # print(f"{zsl=},{ysl=},{xsl=},{csl=}")
-                            # t0 = time.time()
-                            x0[:] = dset_in[slices[0], zsl, ysl, xsl, csl]
-                            # t1 = time.time()
-                            x0 -= np.average(x0, axis=0)[None, ...]
-                            # t2 = time.time()
-                            x0 *= np.hanning(x0.shape[0])[:, None, None, None, None]
-                            # t3 = time.time()
-                            x1 = fft()[:lenf]
-                            # t4 = time.time()
-                            dset_modes[slices[0], zsl, ysl, xsl, csl] = x1
-                            # t5 = time.time()
-                            x1 = np.abs(x1)
-                            # t6 = time.time()
-                            x1 = np.max(x1, axis=(1, 2, 3))
-                            # t7 = time.time()
-                            fft_out.append(x1)
-                            # t8 = time.time()
-                            # print(
-                            #     f"loading slice:{t1-t0:.2f},average:{t2-t1:.2f},hanning:{t3-t2:.2f},fft:{t4-t3:.2f},saving modes:{t5-t4:.2f},abs:{t6-t5:.2f},max:{t7-t6:.2f},saving fft:{t8-t7:.2f}"
-                            # )
-                            progress.update()
-        dset_fft[:] = np.max(np.array(fft_out), axis=0)
+        self.z.create_dataset(
+            f"fft/{dset_out_str}/sum", chunks=False, data=fft_sum, dtype=np.float32
+        )
 
     def simple_calc_modes(
         self,

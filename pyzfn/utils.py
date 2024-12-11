@@ -9,10 +9,13 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import matplotx
 import numpy as np
+import psutil
 import pyfftw
 from ipympl.backend_nbagg import Canvas
 from matplotlib.figure import Figure
 from nptyping import Float, Float32, Int, NDArray, Shape
+
+from pyzfn.chunks import calculate_largest_slice_points
 
 m_type = NDArray[Shape["*,*,*,*,*"], Float32]
 
@@ -408,3 +411,49 @@ def indexes(
         peaks = np.arange(y.size)[~rem]
 
     return peaks
+
+
+def format_bytes(byte_size: int) -> str:
+    """
+    Convert a byte size into a human-readable string with an appropriate unit (e.g., KiB, MiB, GiB).
+
+    Parameters:
+    ----------
+    byte_size : int
+        The number of bytes.
+
+    Returns:
+    -------
+    str
+        A string representing the byte size with an appropriate unit.
+    """
+    if byte_size < 1024:
+        return f"{byte_size} B"
+
+    units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"]
+    size = float(byte_size)
+    unit_index = 0
+
+    while size >= 1024 and unit_index < len(units) - 1:
+        size /= 1024
+        unit_index += 1
+
+    return f"{size:.2f} {units[unit_index]}"
+
+
+def check_memory(
+    slices: List[Tuple[slice, ...]], shape: tuple[int, ...], force: bool = False
+) -> str:
+    largest_chunk_size = calculate_largest_slice_points(slices, shape) * 4
+    available_memory = psutil.virtual_memory().available
+    available_memory_str = format_bytes(available_memory)
+    needed_memory = largest_chunk_size * 3
+    needed_memory_str = format_bytes(needed_memory)
+    if largest_chunk_size > needed_memory and not force:
+        raise MemoryError(
+            f"The needed memory to perform the fft ({needed_memory_str}) is larger than the available memory ({available_memory_str})."
+            + " Please rechunk the data or pass `force=True` to the function to ignore this error."
+        )
+    return (
+        f"Needed memory: {needed_memory_str} | Available memory: {available_memory_str}"
+    )
