@@ -7,7 +7,7 @@ exclude = ["htmlcov"]
 
 [project]
 name = "pyzfn"
-version = "0.1.14"
+version = "0.1.15"
 description = "micromagnetic post processing library"
 authors = [
     { name = "Mathieu Moalic", email = "matmoa@amu.edu.pl" },
@@ -17,17 +17,17 @@ license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "cmocean>=3.0",
-    "ipympl>=0.9",
-    "ipytree>=0.2",
-    "matplotlib>=3.6",
-    "numpy>=1.23",
-    "psutil>=5.9",
-    "tqdm>=4.64",
-    "zarr>=2.13",
-    "pyfftw>=0.13",
-    "nptyping>=2.4",
-    "matplotx>=0.3",
+    "cmocean==3.0",
+    "ipympl==0.9",
+    "ipytree==0.2",
+    "matplotlib==3.6",
+    "numpy==1.23",
+    "psutil==5.9",
+    "tqdm==4.64",
+    "zarr==2.13",
+    "pyfftw==0.13",
+    "nptyping==2.4",
+    "matplotx==0.3",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
