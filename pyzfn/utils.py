@@ -457,3 +457,52 @@ def check_memory(
     return (
         f"Needed memory: {needed_memory_str} | Available memory: {available_memory_str}"
     )
+
+
+def ellipticity(
+    S: np4d,  # 4D array: shape (x, y, t, coord)
+    ground_state: np3d,  # 3D array: shape (x, y, coord)
+) -> np2d:
+    """
+    Compute the ellipticity for each (x, y) point in a 4D array.
+
+    Parameters:
+        S (np.ndarray): A 4D array of shape (x, y, t, coord), where:
+            - x, y are spatial dimensions.
+            - t is the time dimension.
+            - coord is the coordinate dimension (must be 3).
+        ground_state (np.ndarray): A 3D array of shape (x, y, coord), where:
+            - x, y are spatial dimensions.
+            - coord is the coordinate dimension (must be 3).
+
+    Returns:
+        np.ndarray: A 2D array (x, y) map of ellipticity.
+
+    Raises:
+        ValueError: If input dimensions or shapes are not consistent.
+    """
+    if S.ndim != 4:
+        raise ValueError("S must have 4 dimensions")
+    if ground_state.ndim != 3:
+        raise ValueError("ground_state must have 3 dimensions")
+    if S.shape[1:] != ground_state.shape:
+        raise ValueError("S and ground_state must have the same spatial dimensions")
+    if S.shape[-1] != 3:
+        raise ValueError("S must have 3 components in the last dimension")
+
+    # Compute dot products for all points
+    dot_vals = np.sum(S * ground_state, axis=-1)
+
+    # Compute angles for all points
+    angles = np.arccos(np.clip(dot_vals, -1.0, 1.0))
+
+    # Compute min and max angles along the time dimension
+    angle_min = angles.min(axis=0)
+    angle_max = angles.max(axis=0)
+
+    # Compute ellipticity with safeguards for edge cases
+    ellipticity: np2d = np.zeros_like(angle_min)
+    zero_min = (angle_max != 0) & (angle_max != angle_min)
+    ellipticity[zero_min] = angle_min[zero_min] / angle_max[zero_min]
+
+    return ellipticity
