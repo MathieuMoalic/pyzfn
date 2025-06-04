@@ -35,7 +35,7 @@
 
     pyzfn = py.pkgs.buildPythonPackage {
       pname = "pyzfn";
-      version = "1.0.0";
+      version = "1.0.1";
       src = ./.;
       format = "pyproject";
       propagatedBuildInputs = with py.pkgs; [
@@ -54,6 +54,6 @@
     };
   in {
     packages.${system}.default = pyzfn;
-    devShells.${system}.default = pkgs.mkShell {buildInputs = with py.pkgs; [pyzfn pip];};
+    devShells.${system}.default = pkgs.mkShell {buildInputs = with py.pkgs; [pyzfn pip pytest pytest-cov];};
   };
 }

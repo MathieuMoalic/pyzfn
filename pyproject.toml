@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools~=78.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -7,7 +7,7 @@ exclude = ["htmlcov"]
 
 [project]
 name = "pyzfn"
-version = "1.0.0"
+version = "1.0.1"
 description = "micromagnetic post processing library"
 authors = [
     { name = "Mathieu Moalic", email = "matmoa@amu.edu.pl" },
@@ -18,66 +18,19 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 dependencies = [
-    "asttokens~=3.0",
     "cmocean~=4.0",
-    "comm~=0.2",
-    "contourpy~=1.3",
-    "cycler~=0.12",
-    "decorator~=5.2",
-    "Deprecated~=1.2",
-    "executing~=2.2",
-    "fasteners~=0.19",
-    "fonttools~=4.56",
     "ipykernel~=6.29",
-    "ipympl~=0.9",
     "ipython~=9.2",
-    "ipython_genutils~=0.2",
-    "ipython_pygments_lexers~=1.1",
-    "ipytree~=0.2",
-    "ipywidgets~=8.1",
-    "jedi~=0.19",
-    "jupyter_client~=8.6",
-    "jupyter_core~=5.7",
-    "jupyterlab_widgets~=3.0",
-    "kiwisolver~=1.4",
     "matplotlib~=3.10",
-    "matplotlib-inline~=0.1",
     "matplotx~=0.3",
-    "msgpack~=1.1",
-    "nest_asyncio~=1.6",
     "nptyping~=2.5",
-    "numcodecs~=0.15",
     "numpy~=2.2",
-    "packaging~=24.2",
-    "parso~=0.8",
-    "pexpect~=4.9",
-    "pillow~=11.2",
-    "platformdirs~=4.3",
-    "prompt_toolkit~=3.0",
-    "psutil~=7.0",
-    "ptyprocess~=0.7",
-    "pure_eval~=0.2",
-    "Pygments~=2.19",
-    "pyparsing~=3.2",
-    "python-dateutil~=2.9",
-    "pyzmq~=26.3",
-    "setuptools~=78.1",
-    "six~=1.17",
-    "stack_data~=0.6",
-    "toml~=0.10",
-    "tornado~=6.4",
     "tqdm~=4.67",
-    "traitlets~=5.14",
-    "wcwidth~=0.2",
-    "widgetsnbextension~=4.0",
-    "wrapt~=1.17",
     "zarr~=2.18",
 ]
-
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.11",
 ]
 
 [tool.pytest.ini_options]
