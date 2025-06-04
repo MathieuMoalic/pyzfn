@@ -1,9 +1,10 @@
-from typing import Union
+# type: ignore
+from typing import Union, Any
 
 import numpy as np
-from nptyping import Float32, NDArray, Shape
+from nptyping import Float32, NDArray
 
-np1d = NDArray[Shape["*"], Float32]
+np1d = NDArray[Any, Float32]
 optnp1d = Union[np1d, float, int]
 
 MU0 = 4 * np.pi * 1e-7

@@ -1,19 +1,16 @@
-import multiprocessing as mp
 import os
-import shutil
+import warnings
 from collections import namedtuple
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
-import pyfftw
 import zarr
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes, SubplotBase
 from matplotlib.backend_bases import Event, MouseEvent
-from nptyping import Complex64, Float32, NDArray, Shape
+from nptyping import Complex64, Float32, NDArray
 from tqdm import tqdm, trange
-from zarr.util import TreeViewer
 
 from pyzfn.chunks import get_zarr_chunk_slices
 
@@ -22,22 +19,13 @@ from .utils import (
     get_closest_point_on_fig,
     hsl2rgb,
     indexes,
-    load_wisdom,
-    save_wisdom,
 )
 
 npf32 = NDArray[Any, Float32]
-np1d = NDArray[Shape["*"], Float32]
-np2d = NDArray[Shape["*,*"], Float32]
-np3d = NDArray[Shape["*,*,*"], Float32]
-np4d = NDArray[Shape["*,*,*,*"], Float32]
-np5d = NDArray[Shape["*,*,*,*,*"], Float32]
-
 npc64 = NDArray[Any, Complex64]
-np4dc = NDArray[Shape["*,*,*,*"], Complex64]
 
 axType = NDArray[Any, Any] | SubplotBase | Axes
-SliceElement = Union[int, slice, None]
+SliceElement = Union[int, slice, None, type(Ellipsis)]
 ArraySlice = Union[SliceElement, Tuple[SliceElement, ...]]
 
 
@@ -45,38 +33,18 @@ class Pyzfn:
     """Postprocessing, visualization for amumax's zarr outputs"""
 
     def __init__(self, path: str) -> None:
+        warnings.filterwarnings(
+            "ignore",
+            message="Object at .* is not recognized as a component of a Zarr hierarchy.",
+        )
         if not os.path.exists(path):
             raise FileNotFoundError(f"Path Not Found : '{path}'")
 
-        z = zarr.open(path)
-        if not isinstance(z, zarr.Group):
-            raise TypeError(f"Path is not a zarr group : '{path}'")
-        self.z: zarr.Group = z
+        self.z = zarr.open_group(path, mode="r")
+        self.__dict__.update(self.z.__dict__)
 
         self.path: Path = Path(path).absolute()
         self.name: str = self.path.name.replace(self.path.suffix, "")
-
-    def __getitem__(self, item: str) -> Union[zarr.Array, zarr.Group]:
-        if item in dir(self.z):
-            return self.z[item]
-        if item in self.z.attrs:
-            return self.z.attrs[item]
-        if item in self.z.keys():
-            return self.z[item]
-        else:
-            raise NameError(f"{self.path}: The dataset `{item}` does not exist.")
-
-    def __setitem__(self, key: str, value: str) -> None:
-        self.z[key] = value
-
-    def __getattr__(self, name: str) -> Union[zarr.Array, zarr.Group, int, float, str]:
-        if name in dir(self):
-            return getattr(self, name)
-        if name in dir(self.z):
-            return getattr(self.z, name)
-        if name in self.z.attrs:
-            return self.z.attrs[name]
-        raise NameError(f"{self.path}: The dataset `{name}` does not exist.")
 
     def __repr__(self) -> str:
         return f"Pyzfn('{self.name}')"
@@ -88,7 +56,7 @@ class Pyzfn:
         return self.name
 
     @property
-    def pp(self) -> TreeViewer:
+    def pp(self) -> Any:
         """Pretty print the tree"""
         return self.z.tree(expand=True)
 
@@ -97,75 +65,32 @@ class Pyzfn:
         """Print the tree"""
         print(self.name, self.z.tree())
 
-    def rm(self, dset: str) -> None:
-        """
-        Remove a group or dataset
-        :param dset: str:
+    @property
+    def dx(self) -> float:
+        dx = self.z.attrs["dx"]
+        if not isinstance(dx, float):
+            raise ValueError("dx must be a float")
+        return dx
 
-        """
-        shutil.rmtree(f"{self.path}/{dset}", ignore_errors=True)
+    @property
+    def dy(self) -> float:
+        dy = self.z.attrs["dy"]
+        if not isinstance(dy, float):
+            raise ValueError("dy must be a float")
+        return dy
 
-    def is_finished(self) -> bool:
-        end_time: str = self.z.attrs["end_time"]
-        return end_time != ""
-
-    def is_running(self) -> bool:
-        end_time: str = self.z.attrs["end_time"]
-        return end_time == ""
-
-    def mkdir(self, name: str) -> None:
-        """
-        Create nested directories
-        :param name: str:
-
-        """
-        os.makedirs(f"{self.path}/{name}", exist_ok=True)
+    @property
+    def dz(self) -> float:
+        dz = self.z.attrs["dz"]
+        if not isinstance(dz, float):
+            raise ValueError("dz must be a float")
+        return dz
 
     def get_dset(self, dset: str) -> zarr.Array:
-        dset_tmp = self[dset]
+        dset_tmp = self.z[dset]
         if isinstance(dset_tmp, zarr.Group):
             raise ValueError(f"`{dset}` is a group, not a dataset.")
         return dset_tmp
-
-    def get_f32(self, dset: str, slices: ArraySlice) -> npf32:
-        return np.asarray(self.get_dset(dset)[slices], dtype=np.float32)
-
-    def get_c64(self, dset: str, slices: ArraySlice) -> npc64:
-        return np.asarray(self.get_dset(dset)[slices], dtype=np.complex64)
-
-    def get_np1d(self, dset_str: str, slices: ArraySlice) -> np1d:
-        arr = self.get_f32(dset_str, slices)
-        if arr.ndim != 1:
-            raise ValueError("The dataset must be 1D")
-        return arr
-
-    def get_np2d(self, dset_str: str, slices: ArraySlice) -> np2d:
-        arr = self.get_f32(dset_str, slices)
-        if arr.ndim != 2:
-            raise ValueError("The dataset must be 2D")
-        return arr
-
-    def get_np3d(self, dset_str: str, slices: ArraySlice) -> np3d:
-        arr = self.get_f32(dset_str, slices)
-        if arr.ndim != 3:
-            raise ValueError("The dataset must be 3D")
-        return arr
-
-    def get_np4d(self, dset_str: str, slices: ArraySlice) -> np4d:
-        arr = self.get_f32(dset_str, slices)
-        if arr.ndim != 4:
-            raise ValueError("The dataset must be 4D")
-        return arr
-
-    def get_np5d(self, dset_str: str, slices: ArraySlice) -> np5d:
-        arr = self.get_f32(dset_str, slices)
-        if arr.ndim != 5:
-            raise ValueError("The dataset must be 5D")
-        return arr
-
-    def get_np4dc(self, dset_str: str, slices: ArraySlice) -> np4dc:
-        dset = self.get_dset(f"modes/{dset_str}/arr")
-        return np.asarray(dset[slices], dtype=np.complex64)
 
     def calc_disp(
         self, dset_in_str: str = "m", dset_out_str: str = "m", single_y: bool = False
@@ -178,43 +103,35 @@ class Pyzfn:
         hann2d = np.sqrt(np.outer(np.hanning(s[0] - 1), np.hanning(s[3] - 1)))[
             :, :, None
         ]
-        arr = pyfftw.empty_aligned((s[0] - 1, s[3] - 1, s[4]), dtype=np.complex64)
-        load_wisdom(arr)
-        fft = pyfftw.builders.fftn(
-            arr,
-            axes=(1, 0),
-            threads=mp.cpu_count() // 2,
-            planner_effort="FFTW_ESTIMATE",
-            avoid_copy=True,
-        )
-        save_wisdom(arr)
-        ychuncks = dset_in.chunks[2]
+        arr = np.empty((s[0] - 1, s[3] - 1, s[4]), dtype=np.complex64)
+
+        ychunks = dset_in.chunks[2]
         for iy in trange(
-            dset_in.shape[2] // ychuncks - 1,
+            dset_in.shape[2] // ychunks - 1,
             leave=False,
             desc=f"Calculating the dispersion for `{self.name}`",
         ):
             arr[:] = np.sum(
-                dset_in[1:, 0, iy * ychuncks : (iy + 1) * ychuncks, 1:, :], axis=2
+                dset_in[1:, 0, iy * ychunks : (iy + 1) * ychunks, 1:, :], axis=2
             )
             arr *= hann2d
-            out = fft()
-            out -= np.average(out, axis=(0, 1))[None, None, :]
+            out = np.fft.fftn(arr, axes=(1, 0))
+            out -= np.average(out, axis=(0, 1), keepdims=True)
             out = out[: out.shape[0] // 2]
             out = np.fft.fftshift(out, axes=(1, 2))
             arr_out[:] += np.abs(out[: arr_out.shape[0]])
             if single_y:
                 break
+
         self.z.create_dataset(f"{dset_out}/arr", data=arr_out)
-        ts = dset_in.attrs["t"][:]
+        ts = np.asarray(dset_in.attrs["t"])
         freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts))
-        self.z.create_dataset(f"{dset_out}/freqs", data=freqs, chunks=None)
-        kvecs = (
-            np.fft.fftshift(np.fft.fftfreq(arr.shape[1], self.z.attrs["dx"]))
-            * 2
-            * np.pi
-        )
+        self.z.create_dataset(f"{dset_out}/freqs", data=freqs[1:], chunks=False)
+        kvecs = np.fft.fftshift(np.fft.fftfreq(arr.shape[1], self.dx)) * 2 * np.pi
         self.z.create_dataset(f"{dset_out}/kvecs", data=kvecs, chunks=None)
+
+    def rm(self, dset: str) -> None:
+        del self.z[dset]
 
     def calc_modes(
         self,
@@ -242,7 +159,11 @@ class Pyzfn:
         self.rm(f"modes/{dset_out_str}")
         self.rm(f"fft/{dset_out_str}")
 
-        ts = dset_in.attrs["t"][tslice]
+        ts = dset_in.attrs["t"]
+        if not isinstance(ts, list):
+            raise ValueError("t must be a list")
+        ts = np.array(dset_in.attrs["t"])[tslice]
+
         freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
         self.z.create_dataset(f"fft/{dset_out_str}/freqs", data=freqs, chunks=False)
         self.z.create_dataset(f"modes/{dset_out_str}/freqs", data=freqs, chunks=False)
@@ -256,7 +177,7 @@ class Pyzfn:
         fft_sum = np.zeros((len(ts), 3), dtype=np.float32)
         for slice5D in tqdm(slices5D, desc=f"Calculating modes for `{self.name}`"):
             arr = dset_in[slice5D]
-            arr -= arr.mean(axis=0)[None, ...]
+            arr -= np.mean(arr, axis=0)[None, ...]  # type: ignore
             if window:
                 arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
             arr = np.fft.rfft(arr, axis=0)
@@ -282,7 +203,12 @@ class Pyzfn:
         dset_in = self.get_dset(dset_in_str)
         self.rm(f"modes/{dset_out_str}")
         self.rm(f"fft/{dset_out_str}")
-        ts = dset_in.attrs["t"][:tmax]
+
+        ts = dset_in.attrs["t"]
+        if not isinstance(ts, list):
+            raise ValueError("t must be a list")
+        ts = np.array(dset_in.attrs["t"])[:tmax]
+
         freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
         self.z.create_dataset(f"fft/{dset_out_str}/freqs", data=freqs, chunks=False)
         self.z.create_dataset(f"modes/{dset_out_str}/freqs", data=freqs, chunks=False)
@@ -305,7 +231,7 @@ class Pyzfn:
             f"fft/{dset_out_str}/sum", chunks=False, data=np.sum(arr, axis=(1, 2, 3))
         )
 
-    def get_mode(self, dset: str, f: float, c: Union[int, None] = None) -> np4dc:
+    def get_mode(self, dset: str, f: float, c: Union[int, None] = None):
         real_dset = ""
         if f"modes/{dset}/arr" in self.z:
             real_dset = f"modes/{dset}"
@@ -313,13 +239,12 @@ class Pyzfn:
             real_dset = f"tmodes/{dset}"
         else:
             raise ValueError("`modes` or `tmodes` not found.")
-        ds1 = self.get_dset(f"{real_dset}/freqs")
+        ds1 = self.z[f"{real_dset}/freqs"]
         arr1 = np.asarray(ds1[:], dtype=np.float32)
         fi = int((np.abs(arr1 - f)).argmin())
-        arr = self.get_np4dc(
-            f"{real_dset}/arr",
-            (fi, slice(None), slice(None), slice(None), slice(None)),
-        )
+        arr = self.z[f"{real_dset}/arr"][
+            (fi, slice(None), slice(None), slice(None), slice(None))
+        ]
         if c is None:
             return arr
         return arr[..., c]
@@ -337,18 +262,18 @@ class Pyzfn:
     ) -> None:
         Peak = namedtuple("Peak", ["idx", "freq", "amp"])
 
-        def get_peaks(x: np1d, y: np1d) -> List[Peak]:
+        def get_peaks(x: npf32, y: npf32) -> List[Peak]:
             idx = indexes(y, thres=thres, min_dist=min_dist)
             peak_amp = [y[i] for i in idx]
             freqs = [x[i] for i in idx]
             return [Peak(i, f, a) for i, f, a in zip(idx, freqs, peak_amp)]
 
-        def plot_spectra(ax: Axes, x: np1d, y: np1d, peaks: List[Peak]) -> None:
+        def plot_spectra(ax: Axes, x: npf32, y: npf32, peaks: List[Peak]) -> None:
             ax.plot(x, y)
             for _, freq, amp in peaks:
                 ax.text(
                     freq,
-                    amp + 0.03 * max(y),
+                    amp + 0.03 * max(y),  # type: ignore
                     f"{freq:.2f}",
                     # fontsize=5,
                     rotation=90,
@@ -368,13 +293,13 @@ class Pyzfn:
             mode = self.get_mode(dset, f)[z]
             extent = [
                 0,
-                mode.shape[1] * self.dx * 1e9,
+                mode.shape[1] * self.dx * 1e9,  # type: ignore
                 0,
-                mode.shape[0] * self.dy * 1e9,
+                mode.shape[0] * self.dy * 1e9,  # type: ignore
             ]
             for c in range(3):
-                abs_arr = np.abs(mode[:, :, c])
-                phase_arr = np.angle(mode[:, :, c])
+                abs_arr = np.abs(mode[:, :, c])  # type: ignore
+                phase_arr = np.angle(mode[:, :, c])  # type: ignore
                 axes[0, c].imshow(
                     abs_arr,
                     cmap="inferno",
@@ -405,25 +330,25 @@ class Pyzfn:
                     extent=extent,
                 )
 
-        def get_spectrum() -> Tuple[np1d, np1d]:
-            x = self.get_np1d(f"fft/{dset}/freqs", (slice(None),))
-            y = self.get_np1d(f"fft/{dset}/spec", (slice(None), c))
+        def get_spectrum():
+            x = self.get_dset(f"fft/{dset}/freqs")[(slice(None),)]
+            y = self.get_dset(f"fft/{dset}/spec")[(slice(None), c)]
             if log:
                 y = np.log(y)
                 y -= y.min()
                 y /= y.max()
             if not isinstance(x, np.ndarray) or not isinstance(y, np.ndarray):
                 raise ValueError("x and y must be numpy arrays")
-            x1 = np.abs(x - fmin).argmin()
-            x2 = np.abs(x - fmax).argmin()
+            x1 = np.abs(x - fmin).argmin()  # type: ignore
+            x2 = np.abs(x - fmax).argmin()  # type: ignore
             return x[x1:x2], y[x1:x2]
 
         fig = plt.figure(constrained_layout=True, figsize=(15, 6))
         gs = fig.add_gridspec(1, 2)
         ax_spec = fig.add_subplot(gs[0, 0])
         x, y = get_spectrum()
-        peaks = get_peaks(x, y)
-        plot_spectra(ax_spec, x, y, peaks)
+        peaks = get_peaks(x, y)  # type: ignore
+        plot_spectra(ax_spec, x, y, peaks)  # type: ignore
         axes_modes = gs[0, 1].subgridspec(3, 3).subplots()
         vline = ax_spec.axvline(10, ls="--", lw=0.8, c="#ffb86c")
         # plot_modes(axes_modes, peaks[0].freq)
@@ -455,12 +380,12 @@ class Pyzfn:
         repeat: int = 1,
         zero: Optional[bool] = None,
     ) -> Axes:
-        arr = self.get_np3d(dset, (t, z, slice(None), slice(None), slice(None)))
+        arr = self.get_dset(dset)[(t, z, slice(None), slice(None), slice(None))]
         if ax is None:
             shape_ratio = arr.shape[1] / arr.shape[0]
             _, ax = plt.subplots(1, 1, figsize=(3 * shape_ratio, 3), dpi=100)
         if zero is not None:
-            arr -= self.get_np3d(dset, (zero, z, slice(None), slice(None), slice(None)))
+            arr -= self.get_dset(dset)[(zero, z, slice(None), slice(None), slice(None))]  # type: ignore
         arr = np.tile(arr, (repeat, repeat, 1))
         u = arr[:, :, 0]
         v = arr[:, :, 1]
@@ -468,18 +393,21 @@ class Pyzfn:
 
         alphas = -np.abs(w) + 1
         hsl = np.ones((u.shape[0], u.shape[1], 3), dtype=np.float32)
-        hsl[:, :, 0] = np.angle(u + 1j * v) / np.pi / 2  # normalization
-        hsl[:, :, 1] = np.sqrt(u**2 + v**2 + w**2)
-        hsl[:, :, 2] = (w + 1) / 2
+        hsl[:, :, 0] = np.angle(u + 1j * v) / np.pi / 2  # type: ignore
+        hsl[:, :, 1] = np.sqrt(u**2 + v**2 + w**2)  # type: ignore
+        hsl[:, :, 2] = (w + 1) / 2  # type: ignore
         rgb = hsl2rgb(hsl)
         stepx = max(int(u.shape[1] / 20), 1)
         stepy = max(int(u.shape[0] / 20), 1)
         scale = 1 / max(stepx, stepy)
         x, y = np.meshgrid(
-            np.arange(0, u.shape[1], stepx) * float(self.z.attrs["dx"]) * 1e9,
-            np.arange(0, u.shape[0], stepy) * float(self.z.attrs["dy"]) * 1e9,
+            np.arange(0, u.shape[1], stepx) * float(self.dx) * 1e9,
+            np.arange(0, u.shape[0], stepy) * float(self.dy) * 1e9,
         )
-        antidots = np.ma.masked_not_equal(self[dset][0, 0, :, :, 2], 0)
+        adset = self.z[dset]
+        if not isinstance(adset, zarr.Array):
+            raise ValueError("dset must be a zarr array")
+        antidots = np.ma.masked_not_equal(adset[0, 0, :, :, 2], 0)
         antidots = np.tile(antidots, (repeat, repeat))
         ax.quiver(
             x,
@@ -501,9 +429,9 @@ class Pyzfn:
             vmax=np.pi,
             extent=(
                 0,
-                rgb.shape[1] * float(self.z.attrs["dx"]) * 1e9,
+                rgb.shape[1] * float(self.dx) * 1e9,
                 0,
-                rgb.shape[0] * float(self.z.attrs["dy"]) * 1e9,
+                rgb.shape[0] * float(self.dy) * 1e9,
             ),
         )
         ax.set(title=self.name, xlabel="x (nm)", ylabel="y (nm)")
@@ -518,7 +446,7 @@ class Pyzfn:
         dset_in = self.get_dset(f"modes/{dset_in_str}/arr")
         all_peaks = []
         for c in range(3):
-            spec = self.get_np2d("fft/m/freqs", (slice(peak_xcut_min, None), c))
+            spec = self.get_dset("fft/m/freqs")[(slice(peak_xcut_min, None), c)]
             peaks: NDArray[Any, Any] = np.array([])
             for thres in np.linspace(0.1, 0.001):
                 peaks = indexes(spec / spec.max(), thres=thres, min_dist=2)
@@ -550,8 +478,8 @@ class Pyzfn:
     ) -> None:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
         fig.subplots_adjust(bottom=0.16, top=0.94, right=0.99, left=0.08)
-        x = self.get_np1d(f"table/{xdata}", (slice(None),))
-        y = self.get_np1d(f"table/{ydata}", (slice(None),))
+        x = self.get_dset(f"table/{xdata}")[(slice(None),)]
+        y = self.get_dset(f"table/{ydata}")[(slice(None),)]
         ax1.plot(x, y)
         ax1.set_xlabel(xdata)
         ax1.set_ylabel(ydata)

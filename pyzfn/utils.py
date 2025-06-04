@@ -1,8 +1,6 @@
 import colorsys
 import os
-import pickle
 import struct
-from typing import Any, Dict, List, Optional, Tuple
 
 import IPython
 import matplotlib.colors as mcolors
@@ -10,78 +8,35 @@ import matplotlib.pyplot as plt
 import matplotx
 import numpy as np
 import psutil
-import pyfftw
 from ipympl.backend_nbagg import Canvas
-from matplotlib.figure import Figure
-from nptyping import Float, Float32, Int, NDArray, Shape
 
 from pyzfn.chunks import calculate_largest_slice_points
 
-m_type = NDArray[Shape["*,*,*,*,*"], Float32]
 
-np1d = NDArray[Shape["*"], Float32]
-np2d = NDArray[Shape["*,*"], Float32]
-np3d = NDArray[Shape["*,*,*"], Float32]
-np4d = NDArray[Shape["*,*,*,*"], Float32]
-np5d = NDArray[Shape["*,*,*,*,*"], Float32]
-
-
-def wisdom_name_from_array(arr: m_type) -> str:
+def wisdom_name_from_array(arr):
     shape = "_".join([str(i) for i in arr.shape])
     return os.path.expanduser(f"~/.cache/fftw/{shape}_{arr.dtype}")
 
 
-def save_wisdom(arr: m_type) -> None:
-    os.makedirs(os.path.expanduser("~/.cache/fftw/"), exist_ok=True)
-    with open(wisdom_name_from_array(arr), "wb") as f:
-        pickle.dump(pyfftw.export_wisdom(), f)
-
-
-def load_wisdom(arr: m_type) -> bool:
-    wisdom_path = wisdom_name_from_array(arr)
-    if os.path.exists(wisdom_path):
-        with open(wisdom_path, "rb") as f:
-            pyfftw.import_wisdom(pickle.load(f))
-        # print("Wisdom found.")
-        return True
-    else:
-        # print("Wisdom not found, it might take a while optimizing FFTW.")
-        return False
-
-
-def make_cmap(
-    min_color: Tuple[int, int, int, int],
-    max_color: Tuple[int, int, int, int],
-    mid_color: Optional[Tuple[int, int, int, int]] = None,
-    transparent_zero: bool = False,
-) -> mcolors.ListedColormap:
-    cmap: NDArray[Shape["256, 4"], Float] = np.ones((256, 4))
+def make_cmap(min_color, max_color, mid_color=None, transparent_zero=False):
+    cmap = np.ones((256, 4))
     for i in range(4):
         if mid_color is None:
             cmap[:, i] = np.linspace(min_color[i], max_color[i], 256) / 256
         else:
-            cmap[: 256 // 2, i] = (
-                np.linspace(min_color[i], mid_color[i], 256 // 2) / 256
-            )
-            cmap[256 // 2 :, i] = (
-                np.linspace(mid_color[i], max_color[i], 256 // 2) / 256
-            )
+            cmap[:128, i] = np.linspace(min_color[i], mid_color[i], 128) / 256
+            cmap[128:, i] = np.linspace(mid_color[i], max_color[i], 128) / 256
     if transparent_zero:
-        cmap[256 // 2, 3] = 0
-    return mcolors.ListedColormap(cmap)
+        cmap[128, 3] = 0
+    return mcolors.ListedColormap(cmap)  # type: ignore
 
 
-def save_ovf(
-    path: str, arr: m_type, dx: float = 1e-9, dy: float = 1e-9, dz: float = 1e-9
-) -> None:
-    """Saves the given dataset for a given t to a valid OOMMF V2 ovf file"""
-
-    def whd(s: str) -> None:
+def save_ovf(path, arr, dx=1e-9, dy=1e-9, dz=1e-9):
+    def whd(s):
         s += "\n"
         f.write(s.encode("ASCII"))
 
     out = arr.astype("<f4").tobytes()
-
     xnodes, ynodes, znodes = arr.shape[2], arr.shape[1], arr.shape[0]
     xmin, ymin, zmin = 0, 0, 0
     xmax, ymax, zmax = xnodes * dx, ynodes * dy, znodes * dz
@@ -126,7 +81,7 @@ def save_ovf(
         whd("# End: Segment")
 
 
-def load_ovf(path: str) -> NDArray[Shape["4"], Int]:
+def load_ovf(path):
     with open(path, "rb") as f:
         dims = np.array([0, 0, 0, 0])
         while True:
@@ -141,14 +96,14 @@ def load_ovf(path: str) -> NDArray[Shape["4"], Int]:
                 dims[0] = int(line.split(" ")[-1])
             if "Begin: Data" in line:
                 break
-        count = int(dims[0] * dims[1] * dims[2] * dims[3] + 1)
+        count = int(np.prod(dims) + 1)
         arr = np.fromfile(f, "<f4", count=count)[1:].reshape(dims)
     return arr
 
 
-def get_ovf_parms(path: str) -> Dict[str, float]:
+def get_ovf_parms(path):
     with open(path, "rb") as f:
-        parms: Dict[str, float] = {}
+        parms = {}
         while True:
             line = f.readline().strip().decode("ASCII")
             if "valuedim" in line:
@@ -170,14 +125,10 @@ def get_ovf_parms(path: str) -> Dict[str, float]:
     return parms
 
 
-def get_slices(
-    shape: Tuple[int, int, int, int, int],
-    chunks: Tuple[int, int, int, int, int],
-    slices: Tuple[slice, slice, slice, slice, slice],
-) -> List[List[slice]]:
-    out: List[List[slice]] = [[], [], [], []]
+def get_slices(shape, chunks, slices):
+    out = [[], [], [], []]
     for i, (s, c, sl) in enumerate(list(zip(shape, chunks, slices))[1:]):
-        tmp_list: List[List[int]] = []
+        tmp_list = []
         for pt in list(range(s))[sl]:
             chunk_nb = pt // c
             if chunk_nb >= len(tmp_list):
@@ -188,7 +139,7 @@ def get_slices(
     return out
 
 
-def load_mpl_style(skip_style: bool = False) -> None:
+def load_mpl_style(skip_style=False):
     ipy = IPython.get_ipython()  # type: ignore
     if ipy is not None:
         ipy.run_cell_magic(
@@ -210,20 +161,17 @@ def load_mpl_style(skip_style: bool = False) -> None:
         ipy.run_line_magic("matplotlib", "widget")
         ipy.run_line_magic("load_ext", "autoreload")
         ipy.run_line_magic("autoreload", "2")
-
         plt.rcParams["figure.max_open_warning"] = 1000
-
         Canvas.header_visible.default_value = False
         Canvas.footer_visible.default_value = True
     if not skip_style:
         plt.style.use(matplotx.styles.dracula)
         plt.rcParams["figure.figsize"] = [10, 5]
         plt.rcParams["figure.autolayout"] = True
-        # plt.rcParams["axes.grid"] = True
         plt.rcParams["axes.grid.axis"] = "both"
 
 
-def save_current_mplstyle(path: str) -> None:
+def save_current_mplstyle(path):
     newlines = []
     for k, v in plt.rcParams.items():
         if k in [
@@ -248,9 +196,8 @@ def save_current_mplstyle(path: str) -> None:
             v = [str(i) for i in v]
             v = ", ".join(v)
         v = str(v)
-        if len(v) > 4:
-            if v[0] == "#":
-                v = v[1:]
+        if len(v) > 4 and v[0] == "#":
+            v = v[1:]
         if k == "axes.prop_cycle":
             v = v.replace("#", "")
         if k == "grid.color":
@@ -266,16 +213,14 @@ def save_current_mplstyle(path: str) -> None:
         if k == "savefig.bbox":
             v = "tight"
         newlines.append(k + ": " + v + "\n")
-
     with open(path, "w", encoding="utf-8") as f:
         f.writelines(newlines)
 
 
-def hsl2rgb(hsl: np3d) -> np3d:
+def hsl2rgb(hsl):
     h = hsl[..., 0] * 360
     s = hsl[..., 1]
     l = hsl[..., 2]  # noqa: E741
-
     rgb = np.zeros_like(hsl)
     for i, n in enumerate([0, 8, 4]):
         k = (n + h / 30) % 12
@@ -287,7 +232,7 @@ def hsl2rgb(hsl: np3d) -> np3d:
     return rgb
 
 
-def rgb2hsl(rgb: np3d) -> np3d:
+def rgb2hsl(rgb):
     hsl = np.ones_like(rgb)
     for i in range(rgb.shape[0]):
         for j in range(rgb.shape[1]):
@@ -299,51 +244,20 @@ def rgb2hsl(rgb: np3d) -> np3d:
     return hsl
 
 
-def get_closest_point_on_fig(
-    ptx: float, pty: float, linex: np1d, liney: np1d, fig: Figure
-) -> int:
-    def normalize(point: float, line: np1d) -> np1d:
+def get_closest_point_on_fig(ptx, pty, linex, liney, fig):
+    def normalize(point, line):
         line_norm = (line - line.min()) / (line.max() - line.min())
         point_norm = (point - line.min()) / (line.max() - line.min())
-        out: np1d = line_norm - point_norm
-        return out
+        return line_norm - point_norm
 
     figratio = fig.get_figwidth() / fig.get_figheight()
     ix = normalize(ptx, linex)
     iy = normalize(pty, liney) / figratio
-    i: np.intp = np.sqrt(ix**2 + iy**2).argmin()
+    i = np.sqrt(ix**2 + iy**2).argmin()
     return int(i)
 
 
-def indexes(
-    y: np1d, thres: float = 0.3, min_dist: int = 1, thres_abs: bool = False
-) -> NDArray[Any, Any]:
-    """Peak detection routine.
-
-    Finds the numeric index of the peaks in *y* by taking its first order difference. By using
-    *thres* and *min_dist* parameters, it is possible to reduce the number of
-    detected peaks. *y* must be signed.
-
-    Parameters
-    ----------
-    y : ndarray (signed)
-        1D amplitude data to search for peaks.
-    thres : float between [0., 1.]
-        Normalized threshold. Only the peaks with amplitude higher than the
-        threshold will be detected.
-    min_dist : int
-        Minimum distance between each detected peak. The peak with the highest
-        amplitude is preferred to satisfy this constraint.
-    thres_abs: boolean
-        If True, the thres value will be interpreted as an absolute value, instead of
-        a normalized threshold.
-
-    Returns
-    -------
-    ndarray
-        Array containing the numeric indexes of the peaks that were detected.
-        When using with Pandas DataFrames, iloc should be used to access the values at the returned positions.
-    """
+def indexes(y, thres=0.3, min_dist=1, thres_abs=False):
     if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.unsignedinteger):
         raise ValueError("y must be signed")
 
@@ -351,99 +265,61 @@ def indexes(
         thres = float(thres * (np.max(y) - np.min(y)) + np.min(y))
 
     min_dist = int(min_dist)
-
-    # compute first order difference
     dy = np.diff(y)
 
-    # propagate left and right values successively to fill all plateau pixels (0-value)
-    (zeros,) = np.where(dy == 0)
-    (zeros,) = np.where(dy == 0)
-
-    # check if the signal is totally flat
+    zeros = np.where(dy == 0)[0]
     if len(zeros) == len(y) - 1:
         return np.array([])
 
     if len(zeros):
-        # compute first order difference of zero indexes
         zeros_diff = np.diff(zeros)
-        # check when zeros are not chained together
-        (zeros_diff_not_one,) = np.add(np.where(zeros_diff != 1), 1)
-        # make an array of the chained zero indexes
+        zeros_diff_not_one = np.add(np.where(zeros_diff != 1), 1)[0]
         zero_plateaus = np.split(zeros, zeros_diff_not_one)
 
-        # fix if leftmost value in dy is zero
         if zero_plateaus[0][0] == 0:
             dy[zero_plateaus[0]] = dy[zero_plateaus[0][-1] + 1]
             zero_plateaus.pop(0)
-
-        # fix if rightmost value of dy is zero
         if len(zero_plateaus) and zero_plateaus[-1][-1] == len(dy) - 1:
             dy[zero_plateaus[-1]] = dy[zero_plateaus[-1][0] - 1]
             zero_plateaus.pop(-1)
-
-        # for each chain of zero indexes
         for plateau in zero_plateaus:
             median = np.median(plateau)
-            # set leftmost values to leftmost non zero values
             dy[plateau[plateau < median]] = dy[plateau[0] - 1]
-            # set rightmost and middle values to rightmost non zero values
             dy[plateau[plateau >= median]] = dy[plateau[-1] + 1]
 
-    # find the peaks by using the first order difference
     peaks = np.where(
         (np.hstack([dy, 0.0]) < 0.0)
         & (np.hstack([0.0, dy]) > 0.0)
         & (np.greater(y, thres))
     )[0]
 
-    # handle multiple peaks, respecting the minimum distance
     if peaks.size > 1 and min_dist > 1:
         highest = peaks[np.argsort(y[peaks])][::-1]
         rem = np.ones(y.size, dtype=bool)
         rem[peaks] = False
-
         for peak in highest:
             if not rem[peak]:
                 sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
                 rem[sl] = True
                 rem[peak] = False
-
-        peaks = np.arange(y.size)[~rem]
+        peaks = np.arange(y.size)[~rem]  # type: ignore
 
     return peaks
 
 
-def format_bytes(byte_size: int) -> str:
-    """
-    Convert a byte size into a human-readable string with an appropriate unit (e.g., KiB, MiB, GiB).
-
-    Parameters:
-    ----------
-    byte_size : int
-        The number of bytes.
-
-    Returns:
-    -------
-    str
-        A string representing the byte size with an appropriate unit.
-    """
+def format_bytes(byte_size):
     if byte_size < 1024:
         return f"{byte_size} B"
-
     units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"]
     size = float(byte_size)
     unit_index = 0
-
     while size >= 1024 and unit_index < len(units) - 1:
         size /= 1024
         unit_index += 1
-
     return f"{size:.2f} {units[unit_index]}"
 
 
-def check_memory(
-    slices: List[Tuple[slice, ...]], shape: tuple[int, ...], force: bool = False
-) -> str:
+def check_memory(slices, shape, force=False):
     largest_chunk_size = calculate_largest_slice_points(slices, shape) * 4
     available_memory = psutil.virtual_memory().available
     available_memory_str = format_bytes(available_memory)
@@ -459,28 +335,7 @@ def check_memory(
     )
 
 
-def ellipticity(
-    S: np4d,  # 4D array: shape (x, y, t, coord)
-    ground_state: np3d,  # 3D array: shape (x, y, coord)
-) -> np2d:
-    """
-    Compute the ellipticity for each (x, y) point in a 4D array.
-
-    Parameters:
-        S (np.ndarray): A 4D array of shape (x, y, t, coord), where:
-            - x, y are spatial dimensions.
-            - t is the time dimension.
-            - coord is the coordinate dimension (must be 3).
-        ground_state (np.ndarray): A 3D array of shape (x, y, coord), where:
-            - x, y are spatial dimensions.
-            - coord is the coordinate dimension (must be 3).
-
-    Returns:
-        np.ndarray: A 2D array (x, y) map of ellipticity.
-
-    Raises:
-        ValueError: If input dimensions or shapes are not consistent.
-    """
+def ellipticity(S, ground_state):
     if S.ndim != 4:
         raise ValueError("S must have 4 dimensions")
     if ground_state.ndim != 3:
@@ -490,19 +345,11 @@ def ellipticity(
     if S.shape[-1] != 3:
         raise ValueError("S must have 3 components in the last dimension")
 
-    # Compute dot products for all points
     dot_vals = np.sum(S * ground_state, axis=-1)
-
-    # Compute angles for all points
     angles = np.arccos(np.clip(dot_vals, -1.0, 1.0))
-
-    # Compute min and max angles along the time dimension
     angle_min = angles.min(axis=0)
     angle_max = angles.max(axis=0)
-
-    # Compute ellipticity with safeguards for edge cases
-    ellipticity: np2d = np.zeros_like(angle_min)
+    ellipticity = np.zeros_like(angle_min)
     zero_min = (angle_max != 0) & (angle_max != angle_min)
     ellipticity[zero_min] = angle_min[zero_min] / angle_max[zero_min]
-
     return ellipticity
