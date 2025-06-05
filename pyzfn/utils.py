@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import matplotx
 import numpy as np
 import psutil
-from ipympl.backend_nbagg import Canvas
 
 from pyzfn.chunks import calculate_largest_slice_points
 
@@ -162,8 +161,6 @@ def load_mpl_style(skip_style=False):
         ipy.run_line_magic("load_ext", "autoreload")
         ipy.run_line_magic("autoreload", "2")
         plt.rcParams["figure.max_open_warning"] = 1000
-        Canvas.header_visible.default_value = False
-        Canvas.footer_visible.default_value = True
     if not skip_style:
         plt.style.use(matplotx.styles.dracula)
         plt.rcParams["figure.figsize"] = [10, 5]
