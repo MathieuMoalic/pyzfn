@@ -2,7 +2,7 @@
 from typing import Union, Any
 
 import numpy as np
-from nptyping import Float32, NDArray
+from numpy.typing import Float32, NDArray
 
 np1d = NDArray[Any, Float32]
 optnp1d = Union[np1d, float, int]

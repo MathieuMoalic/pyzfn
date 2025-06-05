@@ -7,7 +7,7 @@ exclude = ["htmlcov"]
 
 [project]
 name = "pyzfn"
-version = "1.0.1"
+version = "1.0.2"
 description = "micromagnetic post processing library"
 authors = [
     { name = "Mathieu Moalic", email = "matmoa@amu.edu.pl" },
@@ -23,7 +23,6 @@ dependencies = [
     "ipython~=9.2",
     "matplotlib~=3.10",
     "matplotx~=0.3",
-    "nptyping~=2.5",
     "numpy~=2.2",
     "tqdm~=4.67",
     "zarr~=2.18",

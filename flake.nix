@@ -35,7 +35,7 @@
 
     pyzfn = py.pkgs.buildPythonPackage {
       pname = "pyzfn";
-      version = "1.0.1";
+      version = "1.0.2";
       src = ./.;
       format = "pyproject";
       propagatedBuildInputs = with py.pkgs; [
@@ -45,7 +45,6 @@
         psutil
         tqdm
         zarr
-        nptyping
         matplotx
         cmocean
         ipytree

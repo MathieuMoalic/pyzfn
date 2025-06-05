@@ -9,7 +9,7 @@ import zarr
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes, SubplotBase
 from matplotlib.backend_bases import Event, MouseEvent
-from nptyping import Complex64, Float32, NDArray
+from numpy.typing import NDArray
 from tqdm import tqdm, trange
 
 from pyzfn.chunks import get_zarr_chunk_slices
@@ -21,10 +21,10 @@ from .utils import (
     indexes,
 )
 
-npf32 = NDArray[Any, Float32]
-npc64 = NDArray[Any, Complex64]
+npf32 = NDArray[Any]
+npc64 = NDArray[Any]
 
-axType = NDArray[Any, Any] | SubplotBase | Axes
+axType = NDArray[Any] | SubplotBase | Axes
 SliceElement = Union[int, slice, None, type(Ellipsis)]
 ArraySlice = Union[SliceElement, Tuple[SliceElement, ...]]
 
@@ -447,7 +447,7 @@ class Pyzfn:
         all_peaks = []
         for c in range(3):
             spec = self.get_dset("fft/m/freqs")[(slice(peak_xcut_min, None), c)]
-            peaks: NDArray[Any, Any] = np.array([])
+            peaks = np.array([])
             for thres in np.linspace(0.1, 0.001):
                 peaks = indexes(spec / spec.max(), thres=thres, min_dist=2)
                 if len(peaks) > 25:
