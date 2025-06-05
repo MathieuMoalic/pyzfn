@@ -2,9 +2,9 @@
 from typing import Union, Any
 
 import numpy as np
-from numpy.typing import Float32, NDArray
+from numpy.typing import NDArray
 
-np1d = NDArray[Any, Float32]
+np1d = NDArray[Any]
 optnp1d = Union[np1d, float, int]
 
 MU0 = 4 * np.pi * 1e-7
