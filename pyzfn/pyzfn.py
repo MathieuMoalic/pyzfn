@@ -40,7 +40,7 @@ class Pyzfn:
         if not os.path.exists(path):
             raise FileNotFoundError(f"Path Not Found : '{path}'")
 
-        self.z = zarr.open_group(path, mode="r")
+        self.z = zarr.open_group(path, mode="a")
         self.__dict__.update(self.z.__dict__)
 
         self.path: Path = Path(path).absolute()
