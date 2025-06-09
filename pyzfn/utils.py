@@ -126,7 +126,7 @@ def get_ovf_parms(path):
 
 def get_slices(shape, chunks, slices):
     out = [[], [], [], []]
-    for i, (s, c, sl) in enumerate(list(zip(shape, chunks, slices))[1:]):
+    for i, (s, c, sl) in enumerate(list(zip(shape, chunks, slices))[1:]):  # type: ignore
         tmp_list = []
         for pt in list(range(s))[sl]:
             chunk_nb = pt // c

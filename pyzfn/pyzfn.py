@@ -10,9 +10,8 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes, SubplotBase
 from matplotlib.backend_bases import Event, MouseEvent
 from numpy.typing import NDArray
-from tqdm import tqdm, trange
+from tqdm import trange
 
-from pyzfn.chunks import get_zarr_chunk_slices
 
 from .utils import (
     check_memory,
@@ -137,82 +136,65 @@ class Pyzfn:
         self,
         dset_in_str: str = "m",
         dset_out_str: str = "m",
-        tslice: slice = slice(None),
-        xslice: slice = slice(None),
-        yslice: slice = slice(None),
-        zslice: slice = slice(None),
-        cslice: slice = slice(None),
         window: bool = True,
-        force: bool = False,
-        modes_chunks: Tuple[Optional[int], ...] = (1, None, None, None, None),
-    ) -> None:
-        dset_in = self.get_dset(dset_in_str)
-        if dset_in.ndim != 5:
-            raise ValueError("The dataset must be 5D")
-        slices5D = get_zarr_chunk_slices(
-            zarr_array=dset_in,
-            no_chunk_dims=(0,),
-            slices=(tslice, xslice, yslice, zslice, cslice),
-        )
-        print(check_memory(slices5D, dset_in.shape, force))
-
-        self.rm(f"modes/{dset_out_str}")
-        self.rm(f"fft/{dset_out_str}")
-
-        ts = dset_in.attrs["t"]
-        if not isinstance(ts, list):
-            raise ValueError("t must be a list")
-        ts = np.array(dset_in.attrs["t"])[tslice]
-
-        freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
-        self.z.create_dataset(f"fft/{dset_out_str}/freqs", data=freqs, chunks=False)
-        self.z.create_dataset(f"modes/{dset_out_str}/freqs", data=freqs, chunks=False)
-        modes_dst = self.z.create_dataset(
-            f"modes/{dset_out_str}/arr",
-            chunks=modes_chunks,
-            shape=dset_in.shape,
-            dtype=np.complex64,
-        )
-        fft_max = np.zeros((len(ts), 3), dtype=np.float32)
-        fft_sum = np.zeros((len(ts), 3), dtype=np.float32)
-        for slice5D in tqdm(slices5D, desc=f"Calculating modes for `{self.name}`"):
-            arr = dset_in[slice5D]
-            arr -= np.mean(arr, axis=0)[None, ...]  # type: ignore
-            if window:
-                arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
-            arr = np.fft.rfft(arr, axis=0)
-            modes_dst[(slice(len(freqs)),) + slice5D[1:]] = arr
-            arr = np.abs(arr)
-            fft_max += np.max(arr, axis=(1, 2, 3))
-            fft_sum += np.sum(arr, axis=(1, 2, 3))
-        self.z.create_dataset(
-            f"fft/{dset_out_str}/max", chunks=False, data=fft_max, dtype=np.float32
-        )
-        self.z.create_dataset(
-            f"fft/{dset_out_str}/sum", chunks=False, data=fft_sum, dtype=np.float32
-        )
-
-    def simple_calc_modes(
-        self,
-        dset_in_str: str = "m",
-        dset_out_str: str = "m",
+        tmin: int = 0,
         tmax: Optional[int] = None,
-        zslice: slice = slice(None),
-        window: bool = True,
+        zmin: int = 0,
+        zmax: Optional[int] = None,
+        ymin: int = 0,
+        ymax: Optional[int] = None,
+        xmin: int = 0,
+        xmax: Optional[int] = None,
+        cmin: int = 0,
+        cmax: Optional[int] = None,
+        skip_memory_check: bool = False,
     ) -> None:
-        dset_in = self.get_dset(dset_in_str)
-        self.rm(f"modes/{dset_out_str}")
-        self.rm(f"fft/{dset_out_str}")
+        """
+        Compute FFT modes over a Zarr dataset and save results into the store.
 
+        Parameters:
+            dset_in_str: Input dataset key in `self.z`.
+            dset_out_str: Output dataset key prefix for storing FFT results.
+            window: Whether to apply a Hanning window in time.
+            tmin/tmax, zmin/zmax, ymin/ymax, xmin/xmax, cmin/cmax: Bounds for slicing.
+            skip_memory_check: If True, skip memory checks.
+        """
+        dset_in = self.z[dset_in_str]
+        full_shape = tuple(int(x) for x in dset_in.shape)
+        tmax = tmax if tmax is not None else full_shape[0]
+        zmax = zmax if zmax is not None else full_shape[1]
+        ymax = ymax if ymax is not None else full_shape[2]
+        xmax = xmax if xmax is not None else full_shape[3]
+        cmax = cmax if cmax is not None else full_shape[4]
+
+        slices = [
+            slice(tmin, tmax),
+            slice(zmin, zmax),
+            slice(ymin, ymax),
+            slice(xmin, xmax),
+            slice(cmin, cmax),
+        ]
+        print(
+            f"Calculating modes for {dset_in_str} with shape {full_shape} "
+            f"and slices {slices}"
+        )
+        # Perform memory check
+        msg = check_memory([tuple(slices)], full_shape, force=skip_memory_check)
+        if msg is not None:
+            print(msg)
         ts = dset_in.attrs["t"]
         if not isinstance(ts, list):
             raise ValueError("t must be a list")
         ts = np.array(dset_in.attrs["t"])[:tmax]
 
         freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
-        self.z.create_dataset(f"fft/{dset_out_str}/freqs", data=freqs, chunks=False)
-        self.z.create_dataset(f"modes/{dset_out_str}/freqs", data=freqs, chunks=False)
-        arr = np.asarray(dset_in[:tmax, zslice])
+        self.z.create_dataset(
+            f"fft/{dset_out_str}/freqs", data=freqs, chunks=False, overwrite=True
+        )
+        self.z.create_dataset(
+            f"modes/{dset_out_str}/freqs", data=freqs, chunks=False, overwrite=True
+        )
+        arr = np.asarray(dset_in[tmin:tmax, zmin:zmax, ymin:ymax, xmin:xmax, cmin:cmax])
         arr -= arr.mean(axis=0)[None, ...]
         if window:
             arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
@@ -225,10 +207,16 @@ class Pyzfn:
         )
         arr = np.abs(arr)
         self.z.create_dataset(
-            f"fft/{dset_out_str}/spec", chunks=False, data=np.max(arr, axis=(1, 2, 3))
+            f"fft/{dset_out_str}/spec",
+            chunks=False,
+            data=np.max(arr, axis=(1, 2, 3)),
+            overwrite=True,
         )
         self.z.create_dataset(
-            f"fft/{dset_out_str}/sum", chunks=False, data=np.sum(arr, axis=(1, 2, 3))
+            f"fft/{dset_out_str}/sum",
+            chunks=False,
+            data=np.sum(arr, axis=(1, 2, 3)),
+            overwrite=True,
         )
 
     def get_mode(self, dset: str, f: float, c: Union[int, None] = None):
