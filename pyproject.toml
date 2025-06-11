@@ -25,7 +25,7 @@ dependencies = [
     "matplotx~=0.3",
     "numpy~=2.2",
     "tqdm~=4.67",
-    "zarr~=2.18",
+    "zarr~=3.0.8",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

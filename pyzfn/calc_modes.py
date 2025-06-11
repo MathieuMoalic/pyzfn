@@ -35,9 +35,9 @@ def inner_calc_modes(
     # ------------------------------------------------------------------ #
     # 0) Resolve & validate the input dataset
     # ------------------------------------------------------------------ #
-    if dset_in_str not in self.z:
+    if dset_in_str not in self:
         raise KeyError(f"Dataset '{dset_in_str}' not found in store.")
-    dset_in = self.z[dset_in_str]
+    dset_in = self[dset_in_str]
     if not isinstance(dset_in, zarr.Array):
         raise ValueError(f"'{dset_in_str}' must be a dataset, not a group.")
     if dset_in.ndim != 5:
@@ -97,9 +97,9 @@ def inner_calc_modes(
         f"modes/{dset_out_str}/freqs",
         f"modes/{dset_out_str}/arr",
     ]
-    if not overwrite and any(p in self.z for p in targets):
+    if not overwrite and any(p in self for p in targets):
         raise FileExistsError(
-            f"Output nodes already exist and overwrite=False: {', '.join(p for p in targets if p in self.z)}"
+            f"Output nodes already exist and overwrite=False: {', '.join(p for p in targets if p in self)}"
         )
 
     # ------------------------------------------------------------------ #
@@ -138,38 +138,36 @@ def inner_calc_modes(
     # ------------------------------------------------------------------ #
     # 6) Persist results
     # ------------------------------------------------------------------ #
-    self.z.create_dataset(
+    self.add_ndarray(
+        f"modes/{dset_out_str}/t",
+        data=ts[tmin:tmax],
+        overwrite=overwrite,
+    )
+    self.add_ndarray(
         f"modes/{dset_out_str}/freqs",
         data=freqs,
-        dtype="float32",
         overwrite=overwrite,
-        chunks=False,
     )
-    self.z.create_dataset(
+    self.add_ndarray(
         f"modes/{dset_out_str}/arr",
         data=out,
-        dtype="complex64",
         overwrite=overwrite,
-        chunks=(1, None, None, None, None),
+        chunks=(1, out.shape[1], out.shape[2], out.shape[3], out.shape[4]),
     )
 
     spec = np.abs(out)
-    self.z.create_dataset(
+    self.add_ndarray(
         f"fft/{dset_out_str}/freqs",
         data=freqs,
-        dtype="float32",
         overwrite=overwrite,
-        chunks=False,
     )
-    self.z.create_dataset(
+    self.add_ndarray(
         f"fft/{dset_out_str}/spec",
         data=np.max(spec, axis=(1, 2, 3)).astype(np.float32),
         overwrite=overwrite,
-        chunks=False,
     )
-    self.z.create_dataset(
+    self.add_ndarray(
         f"fft/{dset_out_str}/sum",
         data=np.sum(spec, axis=(1, 2, 3)).astype(np.float32),
         overwrite=overwrite,
-        chunks=False,
     )
