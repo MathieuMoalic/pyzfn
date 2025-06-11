@@ -322,7 +322,7 @@ def check_memory(slices, shape, force=False):
     available_memory_str = format_bytes(available_memory)
     needed_memory = largest_chunk_size * 3
     needed_memory_str = format_bytes(needed_memory)
-    if largest_chunk_size > needed_memory and not force:
+    if available_memory < needed_memory and not force:
         raise MemoryError(
             f"The needed memory to perform the fft ({needed_memory_str}) is larger than the available memory ({available_memory_str})."
             + " Please rechunk the data or pass `force=True` to the function to ignore this error."

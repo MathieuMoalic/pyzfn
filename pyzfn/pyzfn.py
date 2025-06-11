@@ -1,5 +1,4 @@
 import os
-import warnings
 from collections import namedtuple
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Union
@@ -11,10 +10,9 @@ from matplotlib.axes import Axes, SubplotBase
 from matplotlib.backend_bases import Event, MouseEvent
 from numpy.typing import NDArray
 from tqdm import trange
-
+from .calc_modes import inner_calc_modes
 
 from .utils import (
-    check_memory,
     get_closest_point_on_fig,
     hsl2rgb,
     indexes,
@@ -31,18 +29,19 @@ ArraySlice = Union[SliceElement, Tuple[SliceElement, ...]]
 class Pyzfn:
     """Postprocessing, visualization for amumax's zarr outputs"""
 
-    def __init__(self, path: str) -> None:
-        warnings.filterwarnings(
-            "ignore",
-            message="Object at .* is not recognized as a component of a Zarr hierarchy.",
-        )
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Path Not Found : '{path}'")
+    calc_modes = inner_calc_modes
 
-        self.z = zarr.open_group(path, mode="a")
+    def __init__(self, store: str | zarr.MemoryStore) -> None:
+        if isinstance(store, zarr.MemoryStore):
+            self.path = Path("/tmp/test_only").absolute()
+        else:
+            if not os.path.exists(store):
+                raise FileNotFoundError(f"Path Not Found : '{store}'")
+            self.path: Path = Path(store).absolute()
+
+        self.z = zarr.open_group(store, mode="a")
         self.__dict__.update(self.z.__dict__)
 
-        self.path: Path = Path(path).absolute()
         self.name: str = self.path.name.replace(self.path.suffix, "")
 
     def __repr__(self) -> str:
@@ -84,6 +83,9 @@ class Pyzfn:
         if not isinstance(dz, float):
             raise ValueError("dz must be a float")
         return dz
+
+    def rm(self, dset: str) -> None:
+        del self.z[dset]
 
     def get_dset(self, dset: str) -> zarr.Array:
         dset_tmp = self.z[dset]
@@ -128,96 +130,6 @@ class Pyzfn:
         self.z.create_dataset(f"{dset_out}/freqs", data=freqs[1:], chunks=False)
         kvecs = np.fft.fftshift(np.fft.fftfreq(arr.shape[1], self.dx)) * 2 * np.pi
         self.z.create_dataset(f"{dset_out}/kvecs", data=kvecs, chunks=None)
-
-    def rm(self, dset: str) -> None:
-        del self.z[dset]
-
-    def calc_modes(
-        self,
-        dset_in_str: str = "m",
-        dset_out_str: str = "m",
-        window: bool = True,
-        tmin: int = 0,
-        tmax: Optional[int] = None,
-        zmin: int = 0,
-        zmax: Optional[int] = None,
-        ymin: int = 0,
-        ymax: Optional[int] = None,
-        xmin: int = 0,
-        xmax: Optional[int] = None,
-        cmin: int = 0,
-        cmax: Optional[int] = None,
-        skip_memory_check: bool = False,
-    ) -> None:
-        """
-        Compute FFT modes over a Zarr dataset and save results into the store.
-
-        Parameters:
-            dset_in_str: Input dataset key in `self.z`.
-            dset_out_str: Output dataset key prefix for storing FFT results.
-            window: Whether to apply a Hanning window in time.
-            tmin/tmax, zmin/zmax, ymin/ymax, xmin/xmax, cmin/cmax: Bounds for slicing.
-            skip_memory_check: If True, skip memory checks.
-        """
-        dset_in = self.z[dset_in_str]
-        full_shape = tuple(int(x) for x in dset_in.shape)
-        tmax = tmax if tmax is not None else full_shape[0]
-        zmax = zmax if zmax is not None else full_shape[1]
-        ymax = ymax if ymax is not None else full_shape[2]
-        xmax = xmax if xmax is not None else full_shape[3]
-        cmax = cmax if cmax is not None else full_shape[4]
-
-        slices = [
-            slice(tmin, tmax),
-            slice(zmin, zmax),
-            slice(ymin, ymax),
-            slice(xmin, xmax),
-            slice(cmin, cmax),
-        ]
-        print(
-            f"Calculating modes for {dset_in_str} with shape {full_shape} "
-            f"and slices {slices}"
-        )
-        # Perform memory check
-        msg = check_memory([tuple(slices)], full_shape, force=skip_memory_check)
-        if msg is not None:
-            print(msg)
-        ts = dset_in.attrs["t"]
-        if not isinstance(ts, list):
-            raise ValueError("t must be a list")
-        ts = np.array(dset_in.attrs["t"])[:tmax]
-
-        freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
-        self.z.create_dataset(
-            f"fft/{dset_out_str}/freqs", data=freqs, chunks=False, overwrite=True
-        )
-        self.z.create_dataset(
-            f"modes/{dset_out_str}/freqs", data=freqs, chunks=False, overwrite=True
-        )
-        arr = np.asarray(dset_in[tmin:tmax, zmin:zmax, ymin:ymax, xmin:xmax, cmin:cmax])
-        arr -= arr.mean(axis=0)[None, ...]
-        if window:
-            arr *= np.hanning(arr.shape[0])[:, None, None, None, None]
-        arr = np.fft.rfft(arr, axis=0)
-        self.z.create_dataset(
-            f"modes/{dset_out_str}/arr",
-            data=arr,
-            dtype=np.complex64,
-            chunks=(1, None, None, None, None),
-        )
-        arr = np.abs(arr)
-        self.z.create_dataset(
-            f"fft/{dset_out_str}/spec",
-            chunks=False,
-            data=np.max(arr, axis=(1, 2, 3)),
-            overwrite=True,
-        )
-        self.z.create_dataset(
-            f"fft/{dset_out_str}/sum",
-            chunks=False,
-            data=np.sum(arr, axis=(1, 2, 3)),
-            overwrite=True,
-        )
 
     def get_mode(self, dset: str, f: float, c: Union[int, None] = None):
         real_dset = ""
@@ -423,8 +335,6 @@ class Pyzfn:
             ),
         )
         ax.set(title=self.name, xlabel="x (nm)", ylabel="y (nm)")
-        if not isinstance(ax, Axes):
-            raise ValueError("ax must be None")
         return ax
 
     def trim_modes(
