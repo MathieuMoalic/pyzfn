@@ -22,6 +22,20 @@
       doCheck = false;
     };
 
+    pre-commit = py.pkgs.buildPythonPackage rec {
+      pname = "pre-commit";
+      version = "4.2.0";
+      src = pkgs.fetchFromGitHub {
+        owner = "pre-commit";
+        repo = "pre-commit";
+        rev = "v${version}";
+        sha256 = "sha256-rUhI9NaxyRfLu/mfLwd5B0ybSnlAQV2Urx6+fef0sGM=";
+      };
+      propagatedBuildInputs = with py.pkgs; [cfgv identify nodeenv virtualenv pyyaml];
+      doCheck = false;
+      checkPhase = "true";
+    };
+
     pyzfn = py.pkgs.buildPythonPackage {
       pname = "pyzfn";
       version = "1.0.2";
@@ -40,6 +54,6 @@
     };
   in {
     packages.${system}.default = pyzfn;
-    devShells.${system}.default = pkgs.mkShell {buildInputs = with py.pkgs; [pyzfn pip pytest pytest-cov mypy];};
+    devShells.${system}.default = pkgs.mkShell {buildInputs = with py.pkgs; [pyzfn pip pytest pytest-cov mypy pre-commit];};
   };
 }
