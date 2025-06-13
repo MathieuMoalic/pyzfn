@@ -83,25 +83,36 @@ class Pyzfn(Group):  # type: ignore[misc]
 
     @property
     def p(self) -> None:
-        tree = Tree(label=f"[bold]{self.name}[/bold]")
-        nodes = {"": tree}
-        members = sorted([x for x in self.members()])
+        def add_to_tree(group, tree_node, prefix=""):  # type: ignore
+            for key, node in sorted(group.members()):
+                full_key = f"{prefix}/{key}" if prefix else key
+                if hasattr(node, "members"):  # It's a group-like object
+                    label = f"[bold]{key}[/bold]"
+                    new_tree = tree_node.add(label)
+                    add_to_tree(node, new_tree, full_key)
+                else:
+                    shape = getattr(node, "shape", "?")
+                    dtype = getattr(node, "dtype", "?")
+                    label = f"[bold]{key}[/bold] {shape} {dtype}"
+                    tree_node.add(label)
 
-        for key, node in members:
-            parent_key = "" if "/" not in key else key.rsplit("/", 1)[0]
-            parent = nodes.get(parent_key, tree)
-
-            name = key.rsplit("/", 1)[-1]
-            if (zarr and isinstance(node, zarr.Group)) or isinstance(node, type(self)):
-                label = f"[bold]{name}[/bold]"
-            else:
-                shape = getattr(node, "shape", "?")
-                dtype = getattr(node, "dtype", "?")
-                label = f"[bold]{name}[/bold] {shape} {dtype}"
-
-            nodes[key] = parent.add(label)
-
+        tree = Tree(f"[bold]{self.name}[/bold]")
+        add_to_tree(self, tree)
         Console().print(tree)
+
+    def rm(self, name: str) -> None:
+        """
+        Remove a dataset or group from the Zarr store.
+
+        Args:
+            name (str): Name of the dataset or group to remove.
+
+        Raises:
+            KeyError: If the specified name does not exist in the group.
+        """
+        if name not in self:
+            raise KeyError(f"Dataset '{name}' not found in group '{self.name}'.")
+        del self[name]
 
     def add_ndarray(
         self,

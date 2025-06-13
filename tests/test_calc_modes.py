@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import s_ as s
 import pytest
 from pyzfn import Pyzfn
 
@@ -17,10 +18,18 @@ def sim(base_sim: Pyzfn) -> Pyzfn:
 
 def test_calc_modes_basic(sim: Pyzfn) -> None:
     sim.calc_modes("m")
-    assert (
-        sim.get_array("fft/m/freqs").shape[0] == SHAPE[0] // 2 + 1
-    )  # rfft of 64 frames -> 33 frequency bins
-    assert sim.get_array("modes/m/arr").dtype == np.complex64
+    assert sim.get_array("fft/m/freqs").shape == (SHAPE[0] // 2 + 1,)
+    assert sim.get_array("fft/m/freqs").dtype == np.float64
+
+    assert sim.get_array("fft/m/spec").shape == (SHAPE[0] // 2 + 1, 3)
+    assert sim.get_array("fft/m/spec").dtype == np.float32
+
+    assert sim.get_array("fft/m/sum").shape == (SHAPE[0] // 2 + 1, 3)
+    assert sim.get_array("fft/m/sum").dtype == np.float32
+
+    assert sim.get_array("modes/m/freqs").shape == (SHAPE[0] // 2 + 1,)
+    assert sim.get_array("modes/m/freqs").dtype == np.float64
+
     assert sim.get_array("modes/m/arr").shape == (
         SHAPE[0] // 2 + 1,
         SHAPE[1],
@@ -28,11 +37,12 @@ def test_calc_modes_basic(sim: Pyzfn) -> None:
         SHAPE[3],
         SHAPE[4],
     )
+    assert sim.get_array("modes/m/arr").dtype == np.complex64
 
 
 def test_calc_modes_nowindow_differs(sim: Pyzfn) -> None:
-    sim.calc_modes("m", dset_out_str="win", ymax=1, window=True)
-    sim.calc_modes("m", dset_out_str="nowin", ymax=1, window=False)
+    sim.calc_modes("m", dset_out_str="win", slices=s[1:], window=True)
+    sim.calc_modes("m", dset_out_str="nowin", slices=s[1:], window=False)
     spec_win = sim.get_array("fft/win/spec")[:]
     spec_nowin = sim.get_array("fft/nowin/spec")[:]
     assert not np.allclose(spec_win, spec_nowin), "Windowing has no effect"
@@ -42,13 +52,6 @@ def test_calc_modes_overwrite_guard(sim: Pyzfn) -> None:
     sim.calc_modes("m", dset_out_str="safe")
     with pytest.raises(FileExistsError):
         sim.calc_modes("m", dset_out_str="safe", overwrite=False)
-
-
-def test_calc_modes_zero_length_and_bounds(sim: Pyzfn) -> None:
-    with pytest.raises(IndexError):
-        sim.calc_modes("m", zmax=999)
-    with pytest.raises(ValueError):
-        sim.calc_modes("m", tmin=10, tmax=10)
 
 
 def test_calc_modes_missing_time_attr(sim: Pyzfn) -> None:
@@ -65,7 +68,7 @@ def test_calc_modes_wrong_rank(sim: Pyzfn) -> None:
 
 
 def test_calc_modes_partial_slice(sim: Pyzfn) -> None:
-    sim.calc_modes("m", dset_out_str="slice", tmin=10, tmax=20, zmin=0, zmax=1)
+    sim.calc_modes("m", dset_out_str="slice", slices=s[10:20, 0:1])
     arr = sim.get_array("modes/slice/arr")
     assert arr.shape == (
         6,
@@ -77,7 +80,7 @@ def test_calc_modes_partial_slice(sim: Pyzfn) -> None:
 
 
 def test_calc_modes_min_time_frames(sim: Pyzfn) -> None:
-    sim.calc_modes("m", dset_out_str="short", tmin=0, tmax=2)
+    sim.calc_modes("m", dset_out_str="short", slices=s[0:2])
     arr = sim.get_array("modes/short/arr")
     assert arr.shape[0] == 2  # rfft(2) -> 2 frequencies
 
@@ -105,6 +108,13 @@ def test_calc_modes_windowing_energy_change(sim: Pyzfn) -> None:
 
 def test_calc_modes_explicit_overwrite(sim: Pyzfn) -> None:
     sim.calc_modes("m", dset_out_str="overwrite_test")
+    sim.calc_modes(
+        "m", dset_out_str="overwrite_test", overwrite=True
+    )  # should not raise
+
+
+def test_calc_modes_shapes(sim: Pyzfn) -> None:
+    sim.calc_modes("m")
     sim.calc_modes(
         "m", dset_out_str="overwrite_test", overwrite=True
     )  # should not raise
