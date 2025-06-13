@@ -35,7 +35,7 @@ class Pyzfn(Group):  # type: ignore[misc]
     def __init__(
         self,
         store: StoreLike,
-        zarr_format: Literal[2, 3] = 3,
+        zarr_format: Literal[2, 3] = 2,
     ) -> None:
         """
         Initialize a Pyzfn group from a given Zarr store.
