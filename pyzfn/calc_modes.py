@@ -1,14 +1,9 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 if TYPE_CHECKING:
     from pyzfn import Pyzfn
-import zarr
-
-from .utils import (
-    check_memory,
-)
 
 
 def inner_calc_modes(
@@ -16,17 +11,16 @@ def inner_calc_modes(
     dset_in_str: str = "m",
     dset_out_str: str = "m",
     window: bool = True,
-    tmin: Optional[int] = None,
-    tmax: Optional[int] = None,
-    zmin: Optional[int] = None,
-    zmax: Optional[int] = None,
-    ymin: Optional[int] = None,
-    ymax: Optional[int] = None,
-    xmin: Optional[int] = None,
-    xmax: Optional[int] = None,
-    cmin: Optional[int] = None,
-    cmax: Optional[int] = None,
-    skip_memory_check: bool = False,
+    tmin: int | None = None,
+    tmax: int | None = None,
+    zmin: int | None = None,
+    zmax: int | None = None,
+    ymin: int | None = None,
+    ymax: int | None = None,
+    xmin: int | None = None,
+    xmax: int | None = None,
+    cmin: int | None = None,
+    cmax: int | None = None,
     overwrite: bool = True,
 ) -> None:
     """
@@ -35,11 +29,8 @@ def inner_calc_modes(
     # ------------------------------------------------------------------ #
     # 0) Resolve & validate the input dataset
     # ------------------------------------------------------------------ #
-    if dset_in_str not in self:
-        raise KeyError(f"Dataset '{dset_in_str}' not found in store.")
-    dset_in = self[dset_in_str]
-    if not isinstance(dset_in, zarr.Array):
-        raise ValueError(f"'{dset_in_str}' must be a dataset, not a group.")
+    dset_in = self.get_array(dset_in_str)
+
     if dset_in.ndim != 5:
         raise ValueError(f"Expected a 5-D array (t,z,y,x,c); got {dset_in.ndim}-D.")
 
@@ -53,7 +44,7 @@ def inner_calc_modes(
 
     full_shape: tuple[int, ...] = dset_in.shape  # (t, z, y, x, c)
     print(f"Full shape: {full_shape}")
-    # Replace *None* with bounds
+
     tmax = full_shape[0] if tmax is None else tmax
     zmax = full_shape[1] if zmax is None else zmax
     ymax = full_shape[2] if ymax is None else ymax
@@ -68,7 +59,9 @@ def inner_calc_modes(
     # ------------------------------------------------------------------ #
     # 1) Normalise and check slice bounds
     # ------------------------------------------------------------------ #
-    bounds = np.asarray([tmin, tmax, zmin, zmax, ymin, ymax, xmin, xmax, cmin, cmax])
+    bounds = np.asarray(
+        [tmin, tmax, zmin, zmax, ymin, ymax, xmin, xmax, cmin, cmax], dtype=np.int64
+    )
     if np.any(bounds < 0):
         raise ValueError("Slice indices must be non-negative.")
 
@@ -112,9 +105,6 @@ def inner_calc_modes(
         slice(xmin, xmax),
         slice(cmin, cmax),
     ]
-    warn_msg = check_memory([tuple(slice_spec)], full_shape, force=skip_memory_check)
-    if warn_msg:
-        print(warn_msg)
 
     # ------------------------------------------------------------------ #
     # 4) FFT along the *time* axis
@@ -132,7 +122,7 @@ def inner_calc_modes(
     # ------------------------------------------------------------------ #
     # 5) Spectra & frequency axis
     # ------------------------------------------------------------------ #
-    ts = np.asarray(dset_in.attrs["t"])
+    ts = np.asarray(dset_in.attrs["t"], np.float64)
     freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
 
     # ------------------------------------------------------------------ #

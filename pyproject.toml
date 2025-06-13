@@ -7,7 +7,7 @@ exclude = ["htmlcov"]
 
 [project]
 name = "pyzfn"
-version = "1.0.2"
+version = "1.0.3"
 description = "micromagnetic post processing library"
 authors = [
     { name = "Mathieu Moalic", email = "matmoa@amu.edu.pl" },
@@ -18,14 +18,12 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 dependencies = [
-    "cmocean~=4.0",
-    "ipykernel~=6.29",
-    "ipython~=9.2",
     "matplotlib~=3.10",
-    "matplotx~=0.3",
     "numpy~=2.2",
-    "tqdm~=4.67",
     "zarr~=3.0.8",
+    "typing_extensions~=4.13.2",
+    "crc32c~=2.7.1",
+    "rich~=14.0.0",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -51,8 +49,5 @@ warn_unreachable = true
 warn_unused_configs = true
 no_implicit_reexport = true
 disallow_untyped_calls = false
-strict = false
+strict = true
 plugins = "numpy.typing.mypy_plugin"
-
-[tool.pyright]
-reportOptionalMemberAccess = false
