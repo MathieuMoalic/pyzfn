@@ -134,7 +134,7 @@ class Pyzfn(Group):  # type: ignore[misc]
             chunks=chunks,
             dtype=data.dtype,
             overwrite=overwrite,
-            shards="auto",
+            shards=None,
         )
         dset[:] = data
         return dset
