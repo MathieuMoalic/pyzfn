@@ -203,3 +203,36 @@ class Pyzfn(Group):  # type: ignore[misc]
         if not isinstance(array, zarr.Array):
             raise ValueError("Array must be a zarr array not a Group")
         return array
+
+    def g(
+        self,
+        dset_in_str: str,
+        slices: slice | tuple[slice, ...] | None = None,
+    ) -> NDArray[T]:
+        """
+        Retrieve a sliced view of a dataset as a NumPy array.
+
+        Args:
+            dset_in_str (str): Name of the dataset to retrieve from the Zarr group.
+            slices (slice | tuple[slice, ...], optional): Slice or tuple of slices to apply.
+                Defaults to a full slice of 5 dimensions (i.e., `slice(None)` * 5).
+                Tip: use np.s_ to create complex slices.
+
+        Returns:
+            NDArray[T]: A NumPy array containing the sliced data, preserving the original dtype.
+
+        Raises:
+            KeyError: If the dataset does not exist.
+            ValueError: If the dataset is not a Zarr array.
+        """
+        arr = self.get_array(dset_in_str)
+        if slices is None:
+            return np.asarray(arr[:])
+        if isinstance(slices, slice):
+            slices = (slices,)
+        if len(slices) > arr.ndim:
+            raise ValueError(
+                f"Too many slices: got {len(slices)} for {arr.ndim}-dimensional array."
+            )
+
+        return np.asarray(arr[slices])
