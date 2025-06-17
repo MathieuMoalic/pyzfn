@@ -59,3 +59,11 @@ def test_g_too_many_slices(base_sim: Pyzfn) -> None:
     with pytest.raises(ValueError, match="Too many slices"):
         # np.s_ generates a slice tuple: equivalent to (slice(None),)*5
         base_sim.g("g_shape_check", slices=np.s_[:, :, :, :, :])
+
+
+def test_g_sequency_indexing(base_sim: Pyzfn) -> None:
+    data = np.random.rand(5, 5)
+    base_sim.add_ndarray("g_sequence", data)
+    result = base_sim.g("g_sequence", slices=np.s_[[0, 1], 1:4])
+    expected = data[[0, 1], 1:4]
+    np.testing.assert_array_equal(result, expected)

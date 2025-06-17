@@ -1,6 +1,7 @@
 import warnings
 from pathlib import Path
 from typing import Literal, TypeVar
+from collections.abc import Sequence
 
 import numpy as np
 import zarr
@@ -204,10 +205,13 @@ class Pyzfn(Group):  # type: ignore[misc]
             raise ValueError("Array must be a zarr array not a Group")
         return array
 
+    IndexLike = int | slice | Sequence[int] | NDArray[np.int_]
+    SliceTuple = tuple[IndexLike, ...]
+
     def g(
         self,
         dset_in_str: str,
-        slices: slice | tuple[slice, ...] | None = None,
+        slices: SliceTuple | slice | None = None,
     ) -> NDArray[T]:
         """
         Retrieve a sliced view of a dataset as a NumPy array.
@@ -235,4 +239,4 @@ class Pyzfn(Group):  # type: ignore[misc]
                 f"Too many slices: got {len(slices)} for {arr.ndim}-dimensional array."
             )
 
-        return np.asarray(arr[slices])
+        return np.asarray(arr[slices])  # type: ignore
