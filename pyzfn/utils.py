@@ -1,4 +1,5 @@
 import colorsys
+from typing import NamedTuple
 
 import matplotlib.colors as mcolors
 import numpy as np
@@ -50,24 +51,39 @@ def rgb2hsl(rgb: NDArray[np.float64]) -> NDArray[np.float64]:
     return hsl
 
 
-def indexes(
-    y: NDArray[np.float64],
+class Peak(NamedTuple):
+    frequency: float
+    amplitude: float
+    idx: int
+
+
+Numeric = np.integer | np.floating
+
+
+def find_peaks(
+    frequencies: NDArray[Numeric],
+    signal: NDArray[Numeric],
     thres: float = 0.3,
     min_dist: int = 1,
     thres_abs: bool = False,
-) -> NDArray[np.int64]:
-    if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.unsignedinteger):
-        raise ValueError("y must be signed")
-
+) -> list[Peak]:
+    if signal.shape != frequencies.shape:
+        raise ValueError("y and freq must have the same shape")
+    if signal.ndim != 1 or frequencies.ndim != 1:
+        raise ValueError("y and freq must be 1-dimensional arrays")
+    if not isinstance(thres, (int, float)):
+        raise TypeError("thres must be a numeric value")
+    if signal.size == 0 or frequencies.size == 0:
+        return []
     if not thres_abs:
-        thres = float(thres * (np.max(y) - np.min(y)) + np.min(y))
+        thres = float(thres * (np.max(signal) - np.min(signal)) + np.min(signal))
 
     min_dist = int(min_dist)
-    dy = np.diff(y)
+    dy = np.diff(signal)
 
     zeros = np.where(dy == 0)[0]
-    if len(zeros) == len(y) - 1:
-        return np.array([], dtype=np.int64)
+    if len(zeros) == len(signal) - 1:
+        return []
 
     if len(zeros):
         zeros_diff = np.diff(zeros)
@@ -88,21 +104,24 @@ def indexes(
     peaks = np.where(
         (np.hstack([dy, 0.0]) < 0.0)
         & (np.hstack([0.0, dy]) > 0.0)
-        & (np.greater(y, thres))
+        & (np.greater(signal, thres))
     )[0]
 
     if peaks.size > 1 and min_dist > 1:
-        highest = peaks[np.argsort(y[peaks])][::-1]
-        rem = np.ones(y.size, dtype=bool)
+        highest = peaks[np.argsort(signal[peaks])][::-1]
+        rem = np.ones(signal.size, dtype=bool)
         rem[peaks] = False
         for peak in highest:
             if not rem[peak]:
                 sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
                 rem[sl] = True
                 rem[peak] = False
-        peaks = np.arange(y.size)[~rem]
+        peaks = np.arange(signal.size)[~rem]
 
-    return peaks
+    return [
+        Peak(frequency=float(frequencies[i]), amplitude=float(signal[i]), idx=i)
+        for i in peaks
+    ]
 
 
 def format_bytes(byte_size: int) -> str:

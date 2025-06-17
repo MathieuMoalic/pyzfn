@@ -1,12 +1,11 @@
 import numpy as np
-from collections import namedtuple
 from typing import Any, TYPE_CHECKING
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes, SubplotBase
 from matplotlib.backend_bases import MouseEvent, Event, MouseButton
 from numpy.typing import NDArray
 
-from .utils import indexes
+from .utils import find_peaks, Peak
 
 if TYPE_CHECKING:
     from pyzfn import Pyzfn
@@ -26,17 +25,9 @@ def inner_ispec(
     log: bool = False,
     z: int = 0,
 ) -> None:
-    Peak = namedtuple("Peak", ["idx", "freq", "amp"])
-
     dx, dy = self.attrs["dx"], self.attrs["dy"]
     if not isinstance(dx, float) or not isinstance(dy, float):
         raise ValueError("dx and dy must be floats")
-
-    def get_peaks(x: NDArray[np.float64], y: NDArray[np.float64]) -> list[Peak]:
-        idx = indexes(y, thres=thres, min_dist=min_dist)
-        peak_amp = [y[i] for i in idx]
-        freqs = [x[i] for i in idx]
-        return [Peak(i, f, a) for i, f, a in zip(idx, freqs, peak_amp)]
 
     def plot_spectra(
         ax: Axes, x: NDArray[np.float64], y: NDArray[np.float64], peaks: list[Peak]
@@ -117,7 +108,7 @@ def inner_ispec(
     gs = fig.add_gridspec(1, 2)
     ax_spec = fig.add_subplot(gs[0, 0])
     x, y = get_spectrum()
-    peaks = get_peaks(x, y)
+    peaks = find_peaks(x, y)
     plot_spectra(ax_spec, x, y, peaks)
     axes_modes = gs[0, 1].subgridspec(3, 3).subplots()
     vline = ax_spec.axvline((fmax + fmin) / 2, ls="--", lw=0.8, c="#ffb86c")
@@ -126,7 +117,7 @@ def inner_ispec(
         if isinstance(event, MouseEvent) and event.inaxes == ax_spec:
             f: float = (fmax + fmin) / 2
             if event.button == MouseButton.RIGHT:
-                freqs = np.array([p.freq for p in peaks])
+                freqs = np.array([p.frequency for p in peaks])
                 f = freqs[np.abs(freqs - event.xdata).argmin()]
             else:
                 xdata = event.xdata
