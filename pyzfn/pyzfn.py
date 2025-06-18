@@ -23,6 +23,8 @@ warnings.filterwarnings(
 )
 
 T = TypeVar("T", bound=np.generic)
+IndexLike = int | slice | Sequence[int] | NDArray[np.int_]
+SliceTuple = tuple[IndexLike, ...]
 
 
 class Pyzfn(Group):  # type: ignore[misc]
@@ -151,39 +153,20 @@ class Pyzfn(Group):  # type: ignore[misc]
         dset[:] = data
         return dset
 
-    def get_mode(
-        self,
-        dset_str: str,
-        f: float,
-        zmin: int | None = None,
-        zmax: int | None = None,
-        ymin: int | None = None,
-        ymax: int | None = None,
-        xmin: int | None = None,
-        xmax: int | None = None,
-        cmin: int | None = None,
-        cmax: int | None = None,
-    ) -> NDArray[np.complex64]:
+    def get_mode(self, dset_str: str, f: float) -> NDArray[np.complex64]:
         """
         Retrieve a specific mode from the dataset based on frequency and spatial indices.
         Args:
             dset_str (str): Dataset name to retrieve modes from.
             f (float): Frequency to select the mode.
-            zmin, zmax, ymin, ymax, xmin, xmax, cmin, cmax (int | None): Spatial indices for slicing.
         Returns:
             NDArray[np.complex64]: The selected mode as a complex64 NumPy array.
         Raises:
             KeyError: If the dataset does not exist.
         """
-        freqs = np.array(self.get_array(f"modes/{dset_str}/freqs")[:], dtype=np.float64)
+        freqs = self.g(f"modes/{dset_str}/freqs")
         fi = int((np.abs(freqs - f)).argmin())
-
-        return np.array(
-            self.get_array(f"modes/{dset_str}/arr")[
-                fi, zmin:zmax, ymin:ymax, xmin:xmax, cmin:cmax
-            ],
-            dtype=np.complex64,
-        )
+        return np.array(self.get_array(f"modes/{dset_str}/arr")[fi], dtype=np.complex64)
 
     def get_array(self, name: str) -> zarr.Array:
         """
@@ -204,9 +187,6 @@ class Pyzfn(Group):  # type: ignore[misc]
         if not isinstance(array, zarr.Array):
             raise ValueError("Array must be a zarr array not a Group")
         return array
-
-    IndexLike = int | slice | Sequence[int] | NDArray[np.int_]
-    SliceTuple = tuple[IndexLike, ...]
 
     def g(
         self,

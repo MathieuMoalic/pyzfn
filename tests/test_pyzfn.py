@@ -67,3 +67,61 @@ def test_g_sequency_indexing(base_sim: Pyzfn) -> None:
     result = base_sim.g("g_sequence", slices=np.s_[[0, 1], 1:4])
     expected = data[[0, 1], 1:4]
     np.testing.assert_array_equal(result, expected)
+
+
+def test_get_mode_valid(base_sim: Pyzfn) -> None:
+    freqs = np.array([1.0, 2.0, 3.0])
+    modes = np.random.rand(3, 4, 4) + 1j * np.random.rand(3, 4, 4)
+    modes = modes.astype(np.complex64)
+
+    base_sim.add_ndarray("modes/test/freqs", freqs)
+    base_sim.add_ndarray("modes/test/arr", modes)
+
+    f = 2.1  # Closest is index 1 (2.0)
+    result = base_sim.get_mode("test", f)
+
+    np.testing.assert_array_equal(result, modes[1])
+    assert result.dtype == np.complex64
+
+
+def test_get_mode_missing_freqs(base_sim: Pyzfn) -> None:
+    with pytest.raises(KeyError, match="modes/test/freqs"):
+        base_sim.get_mode("test", 1.0)
+
+
+def test_get_mode_missing_arr(base_sim: Pyzfn) -> None:
+    freqs = np.array([1.0, 2.0, 3.0])
+    base_sim.add_ndarray("modes/test/freqs", freqs)
+
+    with pytest.raises(KeyError, match="modes/test/arr"):
+        base_sim.get_mode("test", 2.0)
+
+
+def test_get_mode_closest_freq_selection(base_sim: Pyzfn) -> None:
+    freqs = np.array([1.0, 2.0, 3.0])
+    modes = np.array(
+        [np.full((2, 2), 10 + 1j), np.full((2, 2), 20 + 2j), np.full((2, 2), 30 + 3j)],
+        dtype=np.complex64,
+    )
+
+    base_sim.add_ndarray("modes/sample/freqs", freqs)
+    base_sim.add_ndarray("modes/sample/arr", modes)
+
+    result = base_sim.get_mode("sample", 2.6)  # Closest is 3.0
+    expected = modes[2]
+
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_get_mode_returns_copy(base_sim: Pyzfn) -> None:
+    freqs = np.array([5.0])
+    mode = np.array([[1 + 1j]], dtype=np.complex64)
+    base_sim.add_ndarray("modes/check/freqs", freqs)
+    base_sim.add_ndarray("modes/check/arr", mode[np.newaxis, ...])
+
+    result = base_sim.get_mode("check", 5.0)
+    result[0, 0] = 0 + 0j
+
+    # Check original remains unchanged
+    original = base_sim.get_array("modes/check/arr")[0]
+    assert not np.allclose(original, result)
