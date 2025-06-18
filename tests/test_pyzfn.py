@@ -125,3 +125,55 @@ def test_get_mode_returns_copy(base_sim: Pyzfn) -> None:
     # Check original remains unchanged
     original = base_sim.get_array("modes/check/arr")[0]
     assert not np.allclose(original, result)
+
+
+def test_repr(base_sim: Pyzfn) -> None:
+    assert "Pyzfn" in repr(base_sim)
+
+
+def test_str(base_sim: Pyzfn) -> None:
+    assert "Pyzfn" in str(base_sim)
+
+
+def test_p_prints_tree(base_sim: Pyzfn, capsys) -> None:
+    """
+    .p writes a Rich tree to stdout and returns None.
+    We simply capture the console and make sure the group name shows up.
+    """
+    base_sim.add_ndarray("modes/check/freqs", np.array([5.0]))
+    _ = base_sim.p  # prints to console
+    captured = capsys.readouterr()
+    # Rich adds ANSI codes; look for the plain group name.
+    assert base_sim.name in captured.out
+    # .p is a property that should not accidentally mutate state
+    assert "Tree(" not in repr(base_sim)  # sanity: nothing strange leaked
+
+
+def test_rm_removes_dataset(base_sim: Pyzfn) -> None:
+    data = np.arange(4)
+    base_sim.add_ndarray("to_delete", data)
+    # After removal the key must disappear
+    base_sim.rm("to_delete")
+    with pytest.raises(KeyError):
+        base_sim.get_array("to_delete")
+
+
+def test_rm_missing_key_raises(base_sim: Pyzfn) -> None:
+    with pytest.raises(KeyError):
+        base_sim.rm("i_do_not_exist")
+
+
+def test_get_array_rejects_group(base_sim: Pyzfn) -> None:
+    base_sim.create_group("grp")
+    with pytest.raises(ValueError, match="must be a zarr array"):
+        base_sim.get_array("grp")
+    # keep fixture clean – remove subgroup again
+    del base_sim["grp"]
+
+
+# def test_name_and_path_properties(tmp_path) -> None:
+#     store = zarr.DirectoryStore(tmp_path / "example.zarr")
+#     z = Pyzfn(store)
+#     # path should start with full OS path (no 'file://' inside clean_path)
+#     assert str(tmp_path) in z.path
+#     assert z.name == "example"  # stripped '.zarr'

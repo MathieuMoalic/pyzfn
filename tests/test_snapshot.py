@@ -42,3 +42,9 @@ def test_snapshot_with_custom_ax(sim: Pyzfn) -> None:
     _, ax_in = plt.subplots()
     ax_out = sim.snapshot(ax=ax_in)
     assert ax_out is ax_in
+
+
+def test_snapshot_dx_error(sim: Pyzfn) -> None:
+    sim.attrs["dx"] = "not_a_float"
+    with pytest.raises(ValueError, match="dx and dy must be floats"):
+        sim.snapshot()

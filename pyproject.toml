@@ -31,7 +31,7 @@ classifiers = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-v -p no:warnings --cov=pyzfn --cov-report=html --doctest-modules "
+addopts = "-v -p no:warnings --cov=pyzfn --cov-report=html --doctest-modules  --cov-fail-under=100"
 testpaths = ["tests"]
 
 [tool.mypy]

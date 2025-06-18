@@ -2,20 +2,64 @@ import numpy as np
 import pytest
 from pyzfn import utils
 from pyzfn.utils import find_peaks, Peak
+import matplotlib.colors as mcolors
 
 
-def test_make_cmap() -> None:
-    min_color = (255, 33, 53, 255)
-    max_color = (139, 233, 253, 255)
-    mid_color = (13, 33, 253, 255)
-    utils.make_cmap(min_color, max_color, mid_color)
-    utils.make_cmap(min_color, max_color, mid_color, transparent_zero=True)
-    utils.make_cmap(min_color, max_color, transparent_zero=True)
+def _rgba8_to_unit(arr):
+    """Helper: divide an RGBA tuple of 0-255 ints by 256 to match make_cmap."""
+    return np.asarray(arr, dtype=float) / 256.0
 
 
-def test_hsl2rgb() -> None:
-    hsl = np.ones((40, 50, 3), dtype=np.float64)
-    utils.hsl2rgb(hsl)
+MIN = (0, 0, 0, 255)
+MID = (128, 0, 128, 255)  # purple
+MAX = (255, 255, 255, 255)
+
+
+def test_make_cmap_end_points_and_shape() -> None:
+    cmap: mcolors.ListedColormap = utils.make_cmap(MIN, MAX)
+    assert isinstance(cmap, mcolors.ListedColormap)
+    colours = np.asarray(cmap.colors)  # type: ignore[attr-defined]
+    # basic shape/dtype checks
+    assert colours.shape == (256, 4)
+    assert colours.dtype == float
+    # end points must match min/max (within scaling tolerance)
+    np.testing.assert_allclose(colours[0], _rgba8_to_unit(MIN), rtol=0, atol=1e-6)
+    np.testing.assert_allclose(colours[-1], _rgba8_to_unit(MAX), rtol=0, atol=1e-6)
+    # values should be monotonically increasing in every channel
+    assert np.all(np.diff(colours, axis=0) >= -1e-9)
+
+
+def test_make_cmap_with_midpoint_and_transparency() -> None:
+    cmap = utils.make_cmap(MIN, MAX, MID, transparent_zero=True)
+    colours = np.asarray(cmap.colors)  # type: ignore[attr-defined]
+
+    # Index 127 (end of first half) must equal MID in **all four** channels
+    np.testing.assert_allclose(colours[127], _rgba8_to_unit(MID), atol=1e-6)
+
+    # Index 128 (start of second half) → same RGB, but alpha forced to zero
+    np.testing.assert_allclose(colours[128, :3], _rgba8_to_unit(MID)[:3], atol=1e-6)
+    assert colours[128, 3] == pytest.approx(0.0, abs=1e-10)
+
+
+def test_hsl2rgb_matches_colorsys_reference() -> None:
+    rng = np.random.default_rng(0)
+    hsl = rng.random((20, 15, 3))
+    rgb_ref = np.empty_like(hsl)
+    for i, j in np.ndindex(hsl.shape[:2]):
+        h, s, l = hsl[i, j]  # noqa: E741
+        r, g, b = utils.colorsys.hls_to_rgb(h, l, s)
+        rgb_ref[i, j] = (r, g, b)
+    rgb_utils = utils.hsl2rgb(hsl)
+    np.testing.assert_allclose(rgb_utils, rgb_ref, atol=1e-6)
+
+
+def test_rgb_hsl_roundtrip_precision() -> None:
+    rng = np.random.default_rng(1)
+    rgb = rng.random((10, 12, 3))
+    hsl = utils.rgb2hsl(rgb)
+    rgb_back = utils.hsl2rgb(hsl)
+    # Tolerance chosen to be generous but still expose precision regressions
+    np.testing.assert_allclose(rgb_back, rgb, atol=5e-3, rtol=0)
 
 
 def test_format_bytes_basic() -> None:

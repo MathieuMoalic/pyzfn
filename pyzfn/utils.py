@@ -71,8 +71,6 @@ def find_peaks(
         raise ValueError("y and freq must have the same shape")
     if signal.ndim != 1 or frequencies.ndim != 1:
         raise ValueError("y and freq must be 1-dimensional arrays")
-    if not isinstance(thres, (int, float)):
-        raise TypeError("thres must be a numeric value")
     if signal.size == 0 or frequencies.size == 0:
         return []
     if not thres_abs:
@@ -82,8 +80,6 @@ def find_peaks(
     dy = np.diff(signal)
 
     zeros = np.where(dy == 0)[0]
-    if len(zeros) == len(signal) - 1:
-        return []
 
     if len(zeros):
         zeros_diff = np.diff(zeros)

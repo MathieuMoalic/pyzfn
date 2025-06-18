@@ -1,17 +1,16 @@
+from matplotlib.figure import Figure
 import numpy as np
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 from matplotlib import pyplot as plt
-from matplotlib.axes import Axes, SubplotBase
+from matplotlib.axes import Axes
 from matplotlib.backend_bases import MouseEvent, Event, MouseButton
 from numpy.typing import NDArray
 
 from .utils import find_peaks, Peak
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from pyzfn import Pyzfn
-
-# Use this only for documentation, not isinstance checks
-axType = NDArray[Any] | SubplotBase | Axes
 
 
 def inner_ispec(
@@ -24,7 +23,7 @@ def inner_ispec(
     c: int = 0,
     log: bool = False,
     z: int = 0,
-) -> None:
+) -> tuple[Callable[[Event], None], Figure, Axes, Axes]:
     dx, dy = self.attrs["dx"], self.attrs["dy"]
     if not isinstance(dx, float) or not isinstance(dy, float):
         raise ValueError("dx and dy must be floats")
@@ -46,9 +45,7 @@ def inner_ispec(
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-    def plot_modes(axes: Any, f: float) -> None:
-        if not isinstance(axes, np.ndarray):
-            axes = np.array([[axes]])
+    def plot_modes(axes: NDArray, f: float) -> None:
         for ax in axes.flatten():
             ax.cla()
             ax.set(xticks=[], yticks=[])
@@ -108,7 +105,7 @@ def inner_ispec(
     gs = fig.add_gridspec(1, 2)
     ax_spec = fig.add_subplot(gs[0, 0])
     x, y = get_spectrum()
-    peaks = find_peaks(x, y)
+    peaks = find_peaks(x, y, thres=thres, min_dist=min_dist)
     plot_spectra(ax_spec, x, y, peaks)
     axes_modes = gs[0, 1].subgridspec(3, 3).subplots()
     vline = ax_spec.axvline((fmax + fmin) / 2, ls="--", lw=0.8, c="#ffb86c")
@@ -116,16 +113,16 @@ def inner_ispec(
     def onclick(event: Event) -> None:
         if isinstance(event, MouseEvent) and event.inaxes == ax_spec:
             f: float = (fmax + fmin) / 2
+            if not isinstance(event.xdata, float):
+                return
             if event.button == MouseButton.RIGHT:
                 freqs = np.array([p.frequency for p in peaks])
                 f = freqs[np.abs(freqs - event.xdata).argmin()]
             else:
-                xdata = event.xdata
-                if not isinstance(xdata, float):
-                    return
-                f = xdata
+                f = event.xdata
             vline.set_data([f, f], [0, 1])
             plot_modes(axes_modes, f)
             fig.canvas.draw()
 
     fig.canvas.mpl_connect("button_press_event", onclick)
+    return onclick, fig, ax_spec, axes_modes

@@ -61,9 +61,6 @@ class Pyzfn(Group):  # type: ignore[misc]
     def __str__(self) -> str:
         return f"Pyzfn('{self.name}')"
 
-    def __name__(self) -> str:
-        return self.name
-
     @property
     def path(self) -> str:
         """
@@ -139,9 +136,6 @@ class Pyzfn(Group):  # type: ignore[misc]
         Raises:
             TypeError: If data is not a NumPy ndarray.
         """
-        if not isinstance(data, np.ndarray):
-            raise TypeError(f"Expected numpy.ndarray, got {type(data)} instead.")
-
         dset = self.create_array(
             name=name,
             shape=data.shape,

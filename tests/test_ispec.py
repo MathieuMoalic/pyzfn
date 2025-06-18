@@ -2,6 +2,9 @@ import pytest
 import numpy as np
 import matplotlib
 
+from unittest.mock import patch
+from matplotlib.backend_bases import MouseEvent, MouseButton
+
 matplotlib.use("Agg")
 
 from pyzfn import Pyzfn
@@ -51,3 +54,42 @@ def test_inner_ispec_invalid_attrs(sim: Pyzfn) -> None:
     sim.attrs["dx"] = "not_a_float"
     with pytest.raises(ValueError):
         sim.ispec(dset_str="m")
+
+
+def test_inner_ispec_onclick_behavior(sim: Pyzfn) -> None:
+    onclick, fig, ax_spec, _ = sim.ispec()
+    event = MouseEvent(name="button_press_event", canvas=fig.canvas, x=0, y=0)
+    event.inaxes = ax_spec
+    event.xdata = 20.0
+    event.button = MouseButton.LEFT
+
+    with patch.object(sim, "get_mode") as mock_get_mode:
+        mock_get_mode.return_value = [np.ones((10, 10, 3), dtype=complex)]
+        onclick(event)
+        mock_get_mode.assert_called_once()
+
+
+def test_inner_ispec_onclick_right_behavior(sim: Pyzfn) -> None:
+    onclick, fig, ax_spec, _ = sim.ispec()
+    event = MouseEvent(name="button_press_event", canvas=fig.canvas, x=0, y=0)
+    event.inaxes = ax_spec
+    event.xdata = 20.0
+    event.button = MouseButton.RIGHT
+
+    with patch.object(sim, "get_mode") as mock_get_mode:
+        mock_get_mode.return_value = [np.ones((10, 10, 3), dtype=complex)]
+        onclick(event)
+        mock_get_mode.assert_called_once()
+
+
+def test_inner_ispec_onclick_none_behavior(sim: Pyzfn) -> None:
+    onclick, fig, ax_spec, _ = sim.ispec()
+    event = MouseEvent(name="button_press_event", canvas=fig.canvas, x=0, y=0)
+    event.inaxes = ax_spec
+    event.xdata = None
+    event.button = MouseButton.RIGHT
+
+    with patch.object(sim, "get_mode") as mock_get_mode:
+        mock_get_mode.return_value = [np.ones((10, 10, 3), dtype=complex)]
+        onclick(event)
+        mock_get_mode.assert_not_called()
