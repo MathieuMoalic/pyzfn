@@ -44,10 +44,15 @@ class Pyzfn(Group):  # type: ignore[misc]
         Initialize a Pyzfn group from a given Zarr store.
 
         Args:
-            store (StoreLike): The Zarr store to back the group.
+            store (StoreLike): The Zarr store to back the group. Most commonly a string to a Zarr directory, i.e. "path/to/simulation.zarr".
             zarr_format (Literal[2, 3], optional): Zarr format version. Defaults to 3.
-            use_consolidated (bool | str | None, optional): Whether to use a consolidated metadata file. Defaults to None.
         """
+        if isinstance(store, str) or isinstance(store, Path):
+            p = Path(store)
+            if not p.exists():
+                raise FileNotFoundError(f"Path '{store}' does not exist.")
+            if not p.is_dir():
+                raise NotADirectoryError(f"Path '{store}' is not a directory.")
         super().__init__(sync(AsyncGroup.open(store, zarr_format=zarr_format)))
         self.clean_path: str = self.path.replace("file://", "")
 

@@ -4,6 +4,23 @@ import zarr
 from pyzfn import Pyzfn
 
 
+def test_path_not_exist(tmp_path) -> None:
+    path = tmp_path / "test_store.zarr"
+    if path.exists():
+        path.unlink()
+    with pytest.raises(FileNotFoundError):
+        Pyzfn(path)
+
+
+def test_path_not_dir(tmp_path) -> None:
+    path = tmp_path / "test_store.zarr"
+    if path.exists():
+        path.unlink()
+    path.touch()
+    with pytest.raises(NotADirectoryError):
+        Pyzfn(path)
+
+
 def test_add_ndarray_valid(base_sim: Pyzfn) -> None:
     data = np.random.rand(4, 4)
     arr = base_sim.add_ndarray("data", data)
@@ -169,11 +186,3 @@ def test_get_array_rejects_group(base_sim: Pyzfn) -> None:
         base_sim.get_array("grp")
     # keep fixture clean – remove subgroup again
     del base_sim["grp"]
-
-
-# def test_name_and_path_properties(tmp_path) -> None:
-#     store = zarr.DirectoryStore(tmp_path / "example.zarr")
-#     z = Pyzfn(store)
-#     # path should start with full OS path (no 'file://' inside clean_path)
-#     assert str(tmp_path) in z.path
-#     assert z.name == "example"  # stripped '.zarr'
