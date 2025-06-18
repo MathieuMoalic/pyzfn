@@ -6,10 +6,6 @@ from typing import Any
 from pathlib import Path
 from numpy.typing import NDArray
 
-# ---------------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------------
-
 
 def make_array(
     nz: int, ny: int, nx: int, ncomp: int, seed: int = 0
@@ -30,11 +26,6 @@ def check_roundtrip(arr: NDArray[np.float32], tmp_path: Path, **kwargs: Any) -> 
     assert np.allclose(reloaded, arr, rtol=0, atol=0)
 
 
-# ---------------------------------------------------------------------------
-# parametrised round-trip tests
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "shape",
     [
@@ -46,7 +37,8 @@ def check_roundtrip(arr: NDArray[np.float32], tmp_path: Path, **kwargs: Any) -> 
 def test_roundtrip_various_components(
     shape: tuple[int, int, int, int], tmp_path: Path
 ) -> None:
-    arr = make_array(*shape)
+    nz, ny, nx, ncomp = shape
+    arr = make_array(nz, ny, nx, ncomp)
     check_roundtrip(arr, tmp_path)
 
 
@@ -62,11 +54,6 @@ def test_roundtrip_custom_spacing(spacing: dict[str, float], tmp_path: Path) -> 
     check_roundtrip(arr, tmp_path, **spacing)
 
 
-# ---------------------------------------------------------------------------
-# metadata extraction
-# ---------------------------------------------------------------------------
-
-
 def test_get_ovf_parms(tmp_path: Path) -> None:
     nx, ny, nz, ncomp = 4, 3, 2, 3
     dx, dy, dz = 2e-9, 3e-9, 4e-9
@@ -80,11 +67,6 @@ def test_get_ovf_parms(tmp_path: Path) -> None:
     assert math.isclose(p["dy"], dy, rel_tol=0, abs_tol=1e-15)
     assert math.isclose(p["dz"], dz, rel_tol=0, abs_tol=1e-15)
     assert p["comp"] == ncomp
-
-
-# ---------------------------------------------------------------------------
-# dtype & alignment check
-# ---------------------------------------------------------------------------
 
 
 def test_save_always_little_endian(tmp_path: Path) -> None:

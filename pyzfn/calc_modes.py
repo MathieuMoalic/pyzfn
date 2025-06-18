@@ -91,7 +91,10 @@ def inner_calc_modes(
 
     out = np.fft.rfft(arr, axis=0).astype(np.complex64)
 
-    ts = np.asarray(dset_in.attrs["t"], np.float64)[slices[0]]
+    time_slice = (
+        slices[0] if isinstance(slices, tuple) and len(slices) > 0 else slice(None)
+    )
+    ts = np.asarray(dset_in.attrs["t"], np.float64)[time_slice]
     freqs = np.fft.rfftfreq(len(ts), (ts[-1] - ts[0]) / len(ts)) * 1e-9
 
     self.add_ndarray(

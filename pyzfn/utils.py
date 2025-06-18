@@ -1,9 +1,12 @@
 import colorsys
-from typing import NamedTuple
+from typing import NamedTuple, TypeVar
 
 import matplotlib.colors as mcolors
 import numpy as np
 from numpy.typing import NDArray
+
+T = TypeVar("T", bound=np.generic)
+NPArray = NDArray[np.generic]
 
 
 def make_cmap(

@@ -1,6 +1,6 @@
 from matplotlib.figure import Figure
 import numpy as np
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from collections.abc import Callable
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
@@ -11,6 +11,8 @@ from .utils import find_peaks, Peak
 
 if TYPE_CHECKING:  # pragma: no cover
     from pyzfn import Pyzfn
+
+AxesArray = NDArray[np.object_]
 
 
 def inner_ispec(
@@ -23,7 +25,7 @@ def inner_ispec(
     c: int = 0,
     log: bool = False,
     z: int = 0,
-) -> tuple[Callable[[Event], None], Figure, Axes, Axes]:
+) -> tuple[Callable[[Event], None], Figure, Axes, AxesArray]:
     dx, dy = self.attrs["dx"], self.attrs["dy"]
     if not isinstance(dx, float) or not isinstance(dy, float):
         raise ValueError("dx and dy must be floats")
@@ -45,7 +47,7 @@ def inner_ispec(
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-    def plot_modes(axes: NDArray, f: float) -> None:
+    def plot_modes(axes: AxesArray, f: float) -> None:
         for ax in axes.flatten():
             ax.cla()
             ax.set(xticks=[], yticks=[])
@@ -107,7 +109,7 @@ def inner_ispec(
     x, y = get_spectrum()
     peaks = find_peaks(x, y, thres=thres, min_dist=min_dist)
     plot_spectra(ax_spec, x, y, peaks)
-    axes_modes = gs[0, 1].subgridspec(3, 3).subplots()
+    axes_modes = cast(AxesArray, gs[0, 1].subgridspec(3, 3).subplots())
     vline = ax_spec.axvline((fmax + fmin) / 2, ls="--", lw=0.8, c="#ffb86c")
 
     def onclick(event: Event) -> None:
@@ -119,7 +121,7 @@ def inner_ispec(
                 freqs = np.array([p.frequency for p in peaks])
                 f = freqs[np.abs(freqs - event.xdata).argmin()]
             else:
-                f = event.xdata
+                f = float(event.xdata)
             vline.set_data([f, f], [0, 1])
             plot_modes(axes_modes, f)
             fig.canvas.draw()

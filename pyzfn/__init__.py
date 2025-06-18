@@ -1,6 +1,4 @@
 from .pyzfn import Pyzfn
-from . import utils
-from . import equations
-from . import ovf
+from . import utils, equations, ovf
 
 __all__ = ["Pyzfn", "utils", "equations", "ovf"]

@@ -27,7 +27,7 @@ IndexLike = int | slice | Sequence[int] | NDArray[np.int_]
 SliceTuple = tuple[IndexLike, ...]
 
 
-class Pyzfn(Group):  # type: ignore[misc]
+class Pyzfn(Group):
     """
     A custom Zarr Group subclass for structured simulation output management.
 
@@ -88,7 +88,7 @@ class Pyzfn(Group):  # type: ignore[misc]
 
     @property
     def p(self) -> None:
-        def add_to_tree(group, tree_node, prefix=""):  # type: ignore
+        def add_to_tree(group, tree_node, prefix=""):
             for key, node in sorted(group.members()):
                 full_key = f"{prefix}/{key}" if prefix else key
                 if hasattr(node, "members"):  # It's a group-like object
@@ -163,7 +163,7 @@ class Pyzfn(Group):  # type: ignore[misc]
         Raises:
             KeyError: If the dataset does not exist.
         """
-        freqs = self.g(f"modes/{dset_str}/freqs")
+        freqs: NDArray[np.float64] = self.g(f"modes/{dset_str}/freqs")
         fi = int((np.abs(freqs - f)).argmin())
         return np.array(self.get_array(f"modes/{dset_str}/arr")[fi], dtype=np.complex64)
 
@@ -211,11 +211,15 @@ class Pyzfn(Group):  # type: ignore[misc]
         arr = self.get_array(dset_in_str)
         if slices is None:
             return np.asarray(arr[:])
-        if isinstance(slices, slice):
-            slices = (slices,)
-        if len(slices) > arr.ndim:
-            raise ValueError(
-                f"Too many slices: got {len(slices)} for {arr.ndim}-dimensional array."
-            )
 
-        return np.asarray(arr[slices])  # type: ignore
+        if isinstance(slices, slice):
+            slice_tuple: tuple[slice, ...] = (slices,)
+        else:
+            slice_tuple = slices
+
+        if isinstance(slice_tuple, tuple):
+            if len(slice_tuple) > arr.ndim:
+                raise ValueError(
+                    f"Too many slices: got {len(slice_tuple)} for {arr.ndim}-dimensional array."
+                )
+        return np.asarray(arr[slice_tuple])

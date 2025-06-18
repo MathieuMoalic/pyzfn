@@ -1,12 +1,18 @@
+from collections.abc import Sequence
+import colorsys
 import numpy as np
 import pytest
 from pyzfn import utils
 from pyzfn.utils import find_peaks, Peak
 import matplotlib.colors as mcolors
+from numpy.typing import NDArray
 
 
-def _rgba8_to_unit(arr):
-    """Helper: divide an RGBA tuple of 0-255 ints by 256 to match make_cmap."""
+def _rgba8_to_unit(arr: Sequence[int] | Sequence[float]) -> NDArray[np.float64]:
+    """
+    Divide an RGBA tuple in 0-255 range by 256 so that it can be
+    compared directly with the output of ``make_cmap``.
+    """
     return np.asarray(arr, dtype=float) / 256.0
 
 
@@ -47,7 +53,7 @@ def test_hsl2rgb_matches_colorsys_reference() -> None:
     rgb_ref = np.empty_like(hsl)
     for i, j in np.ndindex(hsl.shape[:2]):
         h, s, l = hsl[i, j]  # noqa: E741
-        r, g, b = utils.colorsys.hls_to_rgb(h, l, s)
+        r, g, b = colorsys.hls_to_rgb(h, l, s)
         rgb_ref[i, j] = (r, g, b)
     rgb_utils = utils.hsl2rgb(hsl)
     np.testing.assert_allclose(rgb_utils, rgb_ref, atol=1e-6)
@@ -102,7 +108,7 @@ def test_format_bytes_large_values() -> None:
     assert utils.format_bytes(1152921504606846976) == "1.00 EiB", "Expected 1.00 EiB"
 
 
-def test_single_peak():
+def test_single_peak() -> None:
     freq = np.linspace(0, 10, 100, dtype=np.float64)
     signal = np.zeros_like(freq)
     signal[50] = 1.0  # One sharp peak
@@ -115,7 +121,7 @@ def test_single_peak():
     assert peaks[0].amplitude == signal[50]
 
 
-def test_multiple_peaks():
+def test_multiple_peaks() -> None:
     freq = np.linspace(0, 10, 100)
     signal = np.zeros_like(freq)
     signal[20] = 0.5
@@ -128,7 +134,7 @@ def test_multiple_peaks():
     assert idxs == [20, 50, 80]
 
 
-def test_threshold_relative():
+def test_threshold_relative() -> None:
     freq = np.linspace(0, 10, 100)
     signal = np.zeros_like(freq)
     signal[30] = 0.2
@@ -140,7 +146,7 @@ def test_threshold_relative():
     assert peaks[0].idx == 70
 
 
-def test_threshold_absolute():
+def test_threshold_absolute() -> None:
     freq = np.linspace(0, 10, 100)
     signal = np.zeros_like(freq)
     signal[30] = 0.2
@@ -156,7 +162,7 @@ def test_threshold_absolute():
     assert len(peaks) == 0
 
 
-def test_plateau_peak():
+def test_plateau_peak() -> None:
     freq = np.linspace(0, 10, 100)
     signal = np.zeros_like(freq)
     signal[45:48] = 1.0  # Flat-topped peak
@@ -166,7 +172,7 @@ def test_plateau_peak():
     assert 45 <= peaks[0].idx <= 47  # Any point in plateau is acceptable
 
 
-def test_min_distance_enforcement():
+def test_min_distance_enforcement() -> None:
     freq = np.linspace(0, 10, 100)
     signal = np.zeros_like(freq)
     signal[30] = 1.0
@@ -177,21 +183,21 @@ def test_min_distance_enforcement():
     assert peaks[0].idx == 30  # Higher of the two should be kept
 
 
-def test_empty_input():
+def test_empty_input() -> None:
     freq = np.array([])
     signal = np.array([])
     peaks = find_peaks(freq, signal)
     assert peaks == []
 
 
-def test_invalid_shape():
+def test_invalid_shape() -> None:
     freq = np.linspace(0, 10, 100)
     signal = np.linspace(0, 10, 99)
     with pytest.raises(ValueError):
         find_peaks(freq, signal)
 
 
-def test_invalid_ndim():
+def test_invalid_ndim() -> None:
     freq = np.ones((100, 2))
     signal = np.ones((100, 2))
     with pytest.raises(ValueError):

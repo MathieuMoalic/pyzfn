@@ -1,10 +1,12 @@
+from numpy.typing import NDArray
 import pytest
 import numpy as np
 import zarr
 from pyzfn import Pyzfn
+from pathlib import Path
 
 
-def test_path_not_exist(tmp_path) -> None:
+def test_path_not_exist(tmp_path: Path) -> None:
     path = tmp_path / "test_store.zarr"
     if path.exists():
         path.unlink()
@@ -12,7 +14,7 @@ def test_path_not_exist(tmp_path) -> None:
         Pyzfn(path)
 
 
-def test_path_not_dir(tmp_path) -> None:
+def test_path_not_dir(tmp_path: Path) -> None:
     path = tmp_path / "test_store.zarr"
     if path.exists():
         path.unlink()
@@ -45,7 +47,7 @@ def test_add_ndarray_no_overwrite_raises(base_sim: Pyzfn) -> None:
 def test_g_full_slice(base_sim: Pyzfn) -> None:
     data = np.random.rand(3, 4, 5)
     base_sim.add_ndarray("g_full", data)
-    result = base_sim.g("g_full")
+    result: NDArray[np.float64] = base_sim.g("g_full")
     np.testing.assert_array_equal(result, data)
     assert result.dtype == data.dtype
 
@@ -53,7 +55,7 @@ def test_g_full_slice(base_sim: Pyzfn) -> None:
 def test_g_single_slice(base_sim: Pyzfn) -> None:
     data = np.random.rand(10, 10)
     base_sim.add_ndarray("g_slice", data)
-    result = base_sim.g("g_slice", slices=np.s_[0:5])
+    result: NDArray[np.float64] = base_sim.g("g_slice", slices=np.s_[0:5])
     np.testing.assert_array_equal(result, data[slice(0, 5)])
     assert result.shape[0] == 5
 
@@ -61,7 +63,7 @@ def test_g_single_slice(base_sim: Pyzfn) -> None:
 def test_g_multi_slice(base_sim: Pyzfn) -> None:
     data = np.arange(100).reshape(10, 10)
     base_sim.add_ndarray("g_multi", data)
-    result = base_sim.g("g_multi", slices=np.s_[1:5, 2:6])
+    result: NDArray[np.float64] = base_sim.g("g_multi", slices=np.s_[1:5, 2:6])
     np.testing.assert_array_equal(result, data[1:5, 2:6])
 
 
@@ -81,7 +83,7 @@ def test_g_too_many_slices(base_sim: Pyzfn) -> None:
 def test_g_sequency_indexing(base_sim: Pyzfn) -> None:
     data = np.random.rand(5, 5)
     base_sim.add_ndarray("g_sequence", data)
-    result = base_sim.g("g_sequence", slices=np.s_[[0, 1], 1:4])
+    result: NDArray[np.float64] = base_sim.g("g_sequence", slices=np.s_[[0, 1], 1:4])
     expected = data[[0, 1], 1:4]
     np.testing.assert_array_equal(result, expected)
 
@@ -152,7 +154,7 @@ def test_str(base_sim: Pyzfn) -> None:
     assert "Pyzfn" in str(base_sim)
 
 
-def test_p_prints_tree(base_sim: Pyzfn, capsys) -> None:
+def test_p_prints_tree(base_sim: Pyzfn, capsys: pytest.CaptureFixture[str]) -> None:
     """
     .p writes a Rich tree to stdout and returns None.
     We simply capture the console and make sure the group name shows up.

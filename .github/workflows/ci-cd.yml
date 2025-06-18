@@ -31,6 +31,16 @@ jobs:
         run: |
           pip install --root-user-action=ignore pytest pytest-cov
           pytest
+        
+      - name: Run type checker
+        run: |
+          pip install --root-user-action=ignore ty
+          ty check
+
+      - name: Run ruff linter
+        run: |
+          pip install --root-user-action=ignore ruff
+          ruff check
 
   deploy:
     needs: test

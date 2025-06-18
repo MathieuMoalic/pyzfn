@@ -3,7 +3,19 @@ repos:
     hooks:
       - id: run-pytest
         name: Run Pytest before commit
-        entry: pytest
+        entry: uv run pytest
         language: system
         always_run: true
+        pass_filenames: false
+
+      - id: run-ty
+        name: Run ty before commit
+        entry: uv run ty check
+        language: system
+        pass_filenames: false
+
+      - id: run-ruff
+        name: Run ruff before commit
+        entry: uv run ruff check
+        language: system
         pass_filenames: false

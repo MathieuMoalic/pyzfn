@@ -30,24 +30,19 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 
+[dependency-groups]
+dev = [
+    "pyzfn",
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.12.0",
+    "ty>=0.0.1a11",
+]
+
 [tool.pytest.ini_options]
-addopts = "-v -p no:warnings --cov=pyzfn --cov-report=html --doctest-modules  --cov-fail-under=100"
+addopts = "-v -p no:warnings --cov=pyzfn --cov-report=html --doctest-modules --cov-fail-under=100"
 testpaths = ["tests"]
 
-[tool.mypy]
-disable_error_code = "unused-ignore"
-mypy_path = "pyzfn"
-check_untyped_defs = true
-disallow_any_generics = true
-ignore_missing_imports = true
-no_implicit_optional = true
-show_error_codes = true
-strict_equality = true
-warn_redundant_casts = true
-warn_return_any = true
-warn_unreachable = true
-warn_unused_configs = true
-no_implicit_reexport = true
-disallow_untyped_calls = false
-strict = true
-plugins = "numpy.typing.mypy_plugin"
+[tool.uv.sources]
+pyzfn = { workspace = true }
