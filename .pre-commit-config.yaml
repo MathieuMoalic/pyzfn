@@ -19,3 +19,9 @@ repos:
         entry: uv run ruff check
         language: system
         pass_filenames: false
+
+      - id: run-ruff-format
+        name: Run ruff format before commit
+        entry: uv run ruff format
+        language: system
+        pass_filenames: false

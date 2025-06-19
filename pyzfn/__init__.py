@@ -1,4 +1,9 @@
-from .pyzfn import Pyzfn
-from . import utils, equations, ovf
+"""pyzfn package.
 
-__all__ = ["Pyzfn", "utils", "equations", "ovf"]
+This package provides functionality for equations, ovf, utils, and the Pyzfn class.
+"""
+
+from . import equations, ovf, utils
+from .pyzfn import Pyzfn
+
+__all__ = ["Pyzfn", "equations", "ovf", "utils"]

@@ -1,25 +1,42 @@
+"""Tests for the pyzfn.ovf module."""
+
 import math
-import numpy as np
-from pyzfn import ovf
-import pytest
-from typing import Any
 from pathlib import Path
+
+import numpy as np
+import pytest
 from numpy.typing import NDArray
+
+from pyzfn import ovf
 
 
 def make_array(
-    nz: int, ny: int, nx: int, ncomp: int, seed: int = 0
+    nz: int,
+    ny: int,
+    nx: int,
+    ncomp: int,
+    seed: int = 0,
 ) -> NDArray[np.float32]:
-    """Deterministic pseudo-random array in the exact dtype used by save_ovf."""
+    """Deterministic pseudo-random array in the exact dtype used by save_ovf.
+
+    Returns:
+        NDArray[np.float32]: The generated pseudo-random array.
+
+    """
     rng = np.random.default_rng(seed)
-    data = rng.standard_normal(size=(nz, ny, nx, ncomp), dtype=np.float32)
-    return data
+    return rng.standard_normal(size=(nz, ny, nx, ncomp), dtype=np.float32)
 
 
-def check_roundtrip(arr: NDArray[np.float32], tmp_path: Path, **kwargs: Any) -> None:
+def check_roundtrip(
+    arr: NDArray[np.float32],
+    tmp_path: Path,
+    dx: float = 1e-9,
+    dy: float = 1e-9,
+    dz: float = 1e-9,
+) -> None:
     """Write, read back, and compare."""
     fname = tmp_path / "tmp.ovf"
-    ovf.save_ovf(fname, arr, **kwargs)
+    ovf.save_ovf(fname, arr, dx=dx, dy=dy, dz=dz)
     reloaded = ovf.load_ovf(fname)
     assert reloaded.dtype == np.float32  # OVF uses <f4
     assert reloaded.shape == arr.shape
@@ -35,8 +52,10 @@ def check_roundtrip(arr: NDArray[np.float32], tmp_path: Path, **kwargs: Any) -> 
     ],
 )
 def test_roundtrip_various_components(
-    shape: tuple[int, int, int, int], tmp_path: Path
+    shape: tuple[int, int, int, int],
+    tmp_path: Path,
 ) -> None:
+    """Test OVF roundtrip for arrays with various numbers of components."""
     nz, ny, nx, ncomp = shape
     arr = make_array(nz, ny, nx, ncomp)
     check_roundtrip(arr, tmp_path)
@@ -50,11 +69,13 @@ def test_roundtrip_various_components(
     ],
 )
 def test_roundtrip_custom_spacing(spacing: dict[str, float], tmp_path: Path) -> None:
+    """Test OVF roundtrip with custom voxel spacing."""
     arr = make_array(2, 2, 2, 3)
     check_roundtrip(arr, tmp_path, **spacing)
 
 
 def test_get_ovf_parms(tmp_path: Path) -> None:
+    """Test that get_ovf_parms returns correct parameters from a saved OVF file."""
     nx, ny, nz, ncomp = 4, 3, 2, 3
     dx, dy, dz = 2e-9, 3e-9, 4e-9
     arr = make_array(nz, ny, nx, ncomp)
@@ -62,7 +83,9 @@ def test_get_ovf_parms(tmp_path: Path) -> None:
     ovf.save_ovf(fname, arr, dx=dx, dy=dy, dz=dz)
 
     p = ovf.get_ovf_parms(fname)
-    assert p["Nx"] == nx and p["Ny"] == ny and p["Nz"] == nz
+    assert p["Nx"] == nx
+    assert p["Ny"] == ny
+    assert p["Nz"] == nz
     assert math.isclose(p["dx"], dx, rel_tol=0, abs_tol=1e-15)
     assert math.isclose(p["dy"], dy, rel_tol=0, abs_tol=1e-15)
     assert math.isclose(p["dz"], dz, rel_tol=0, abs_tol=1e-15)
@@ -70,10 +93,11 @@ def test_get_ovf_parms(tmp_path: Path) -> None:
 
 
 def test_save_always_little_endian(tmp_path: Path) -> None:
+    """Test that OVF files are always saved in little-endian format."""
     arr = make_array(1, 1, 4, 1)
     fname = tmp_path / "endian.ovf"
     ovf.save_ovf(fname, arr)
-    with open(fname, "rb") as f:
+    with Path.open(fname, "rb") as f:
         while b"Begin: Data Binary 4" not in f.readline():
             pass
         (magic,) = np.fromfile(f, "<f4", count=1)

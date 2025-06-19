@@ -1,3 +1,5 @@
+"""Functions for calculating spatially-resolved FFT modes."""
+
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -5,38 +7,43 @@ import numpy as np
 if TYPE_CHECKING:  # pragma: no cover
     from pyzfn import Pyzfn
 
+NDIMS = 5
+
 
 def inner_calc_modes(
     self: "Pyzfn",
     dset_in_str: str = "m",
     dset_out_str: str = "m",
-    slices: tuple[slice, ...] | slice = (slice(None),) * 5,
+    slices: tuple[slice, ...] | slice | None = None,
+    *,
     window: bool = True,
-    overwrite: bool = True,
 ) -> None:
-    """
-    Calculate spatially-resolved FFT modes and store the results in-place.
+    """Calculate spatially-resolved FFT modes and store the results in-place.
+
     This function computes the FFT of a 5-D dataset (time, z, y, x, c) and stores
     the results in a structured format under the `fft` and `modes` namespaces.
+
     Parameters
     ----------
+    self : Pyzfn
+        Instance of the Pyzfn class on which this method operates.
     dset_in_str : str
         Name of the input dataset to process.
     dset_out_str : str
         Name of the output dataset to create.
     slices : tuple[slice, ...] | slice
-        Slices to apply to the input dataset. Defaults to all data. Tip: use np.s_ to create complex slices.
+        Slices to apply to the input dataset. Defaults to all data.
+        Tip: use np.s_ to create complex slices.
     window : bool
         Whether to apply a Hanning window to the time dimension before FFT.
         Defaults to True.
-    overwrite : bool
-        Whether to overwrite existing output datasets. Defaults to True.
+
     Raises
     ------
     ValueError
-        If the input dataset does not have the expected shape or lacks the required time attribute.
-    FileExistsError
-        If the output datasets already exist and `overwrite` is set to False.
+        If the input dataset does not have the expected shape or
+        lacks the required time attribute.
+
     Notes
     -----
     This function expects the input dataset to be a 5-D array with dimensions
@@ -52,37 +59,29 @@ def inner_calc_modes(
     - `fft/{dset_out_str}/sum`: Sum of spectral amplitudes across spatial dimensions.
     - `modes/{dset_out_str}/freqs`: Frequencies corresponding to the FFT modes.
     - `modes/{dset_out_str}/arr`: Complex FFT modes array.
+
     """
     dset_in = self.get_array(dset_in_str)
 
-    if isinstance(slices, slice):
+    if slices is None:
+        slices = (slice(None),) * NDIMS
+    elif isinstance(slices, slice):
         slices = (slices,)
 
-    if dset_in.ndim != 5:
-        raise ValueError(f"Expected a 5-D array (t,z,y,x,c); got {dset_in.ndim}-D.")
+    if dset_in.ndim != NDIMS:
+        msg = f"Expected a 5-D array (t,z,y,x,c); got {dset_in.ndim}-D."
+        raise ValueError(msg)
 
     if "t" not in dset_in.attrs:
-        raise ValueError(f"Dataset '{dset_in_str}' lacks required time attribute 't'.")
+        msg = f"Dataset '{dset_in_str}' lacks required time attribute 't'."
+        raise ValueError(msg)
     ts = np.asarray(dset_in.attrs["t"], dtype=np.float64)
     if ts.size != dset_in.shape[0]:
-        raise ValueError(
-            f"len(attrs['t'])={ts.size} does not match time dimension {dset_in.shape[0]}"
+        msg = (
+            f"len(attrs['t'])={ts.size} does not match time dimension "
+            f"{dset_in.shape[0]}"
         )
-
-    full_shape: tuple[int, ...] = dset_in.shape  # (t, z, y, x, c)
-    print(f"Full shape: {full_shape}")
-
-    targets = [
-        f"fft/{dset_out_str}/freqs",
-        f"fft/{dset_out_str}/spec",
-        f"fft/{dset_out_str}/sum",
-        f"modes/{dset_out_str}/freqs",
-        f"modes/{dset_out_str}/arr",
-    ]
-    if not overwrite and any(p in self for p in targets):
-        raise FileExistsError(
-            f"Output nodes already exist and overwrite=False: {', '.join(p for p in targets if p in self)}"
-        )
+        raise ValueError(msg)
 
     arr = np.asarray(dset_in[slices], dtype=np.float32)
     arr -= arr.mean(axis=0, keepdims=True)
@@ -100,12 +99,10 @@ def inner_calc_modes(
     self.add_ndarray(
         f"modes/{dset_out_str}/freqs",
         data=freqs,
-        overwrite=overwrite,
     )
     self.add_ndarray(
         f"modes/{dset_out_str}/arr",
         data=out,
-        overwrite=overwrite,
         chunks=(1, out.shape[1], out.shape[2], out.shape[3], out.shape[4]),
     )
 
@@ -113,15 +110,12 @@ def inner_calc_modes(
     self.add_ndarray(
         f"fft/{dset_out_str}/freqs",
         data=freqs,
-        overwrite=overwrite,
     )
     self.add_ndarray(
         f"fft/{dset_out_str}/spec",
         data=np.max(spec, axis=(1, 2, 3)),
-        overwrite=overwrite,
     )
     self.add_ndarray(
         f"fft/{dset_out_str}/sum",
         data=np.sum(spec, axis=(1, 2, 3)),
-        overwrite=overwrite,
     )

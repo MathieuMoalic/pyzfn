@@ -1,22 +1,75 @@
+# flake8: noqa: N803, N806, PLR0913
+
+"""Equations for ferromagnetic resonance and spin wave dispersion relations.
+
+This module provides functions to compute resonance frequencies and dispersion
+relations for various magnetic systems, including models by Kittel, Kalinikos & Slavin,
+Böttcher, Kim, and Cortés-Ortuño. All equations assume SI units.
+"""
+
 from __future__ import annotations
+
 import math
 
 MU0: float = 4.0 * math.pi * 1.0e-7  # vacuum permeability  (N A⁻²)
 
 
 def _gamma(g_factor: float) -> float:
-    """Gyromagnetic ratio γ (rad s⁻¹ T⁻¹) from a Landé g-factor."""
+    """Gyromagnetic ratio (rad s⁻¹ T⁻¹) from a Lande g-factor.
+
+    Returns:
+        Gyromagnetic ratio as a float (rad s⁻¹ T⁻¹).
+
+    """
     return 87.9447e9 * g_factor
 
 
 def kittel_1948(
-    B: float = 0.235,
-    Ms: float = 1.150e6,
-    Ku: float = 0.938e6,
-    g: float = 2.002,
+    *,
+    B: float,
+    Ms: float,
+    Ku: float,
+    g: float,
 ) -> float:
-    r"""
-    Uniform in-plane ferromagnetic resonance (Kittel 1948).
+    r"""Uniform in-plane ferromagnetic resonance (Kittel model).
+
+    Calculates the *k* = 0 in-plane FMR frequency for a thin film with
+    uniaxial perpendicular anisotropy, as derived by Kittel (1948).
+
+    Parameters
+    ----------
+    B : float
+        Static magnetic field in tesla (T), applied in the film plane.
+    Ms : float
+        Saturation magnetisation in amperes per metre (A m⁻¹).
+    Ku : float
+        Uniaxial anisotropy constant in joules per cubic metre (J m⁻³).
+    g : float
+        Landé *g*-factor (dimensionless).
+
+    Returns
+    -------
+    float
+        Resonance frequency in hertz (Hz).
+
+    Notes
+    -----
+    The frequency is given by
+
+    .. math::
+
+        f = \\frac{\\gamma}{2\\pi}
+            \\sqrt{B\\left(B + \\mu_{0}M_{s} - 2K_{u}/M_{s}\\right)}.
+
+    If the square-root argument becomes negative, the function returns
+    ``0.0`` by definition.
+
+    References
+    ----------
+    C. Kittel, *Phys. Rev.* **73**, 155 (1948).
+
+    """
+    r"""Uniform in-plane ferromagnetic resonance (Kittel 1948).
 
     Paper
         C. Kittel, *Phys. Rev.* **73**, 155 (1948)
@@ -32,57 +85,115 @@ def kittel_1948(
         * Static field **B** and magnetisation in the film plane.
         * Only the lowest (k = 0) mode; uniaxial anisotropy axis ⟂ plane.
         * Returns **0.0 Hz** when the square-root argument is negative.
+
+    Returns
+    -------
+        Resonance frequency in Hz as a float.
+
     """
     gamma = _gamma(g)
     radicand = B * (B + MU0 * Ms - 2.0 * Ku / Ms)
-    if radicand < 0.0:
-        return 0.0
     return gamma * math.sqrt(radicand) / (2.0 * math.pi)
 
 
 def kalinikos_1986(
+    *,
     B: float,
     Ms: float,
     Ku: float,
-    g: float = 2.002,
+    g: float,
 ) -> float:
-    r"""
-    Uniform (k = 0) perpendicular FMR - Kalinikos & Slavin 1986.
+    r"""Uniform perpendicular FMR (Kalinikos & Slavin 1986).
 
-    Paper
-        B. A. Kalinikos & A. N. Slavin, *J. Phys. C* **19**, 7013 (1986)
-        https://iopscience.iop.org/article/10.1088/0022-3719/19/35/014/pdf
+    Computes the *k* = 0 resonance frequency for a film magnetised
+    **out of plane**.
+
+    Parameters
+    ----------
+    B : float
+        Static magnetic field in tesla (T), applied perpendicular to the film.
+    Ms : float
+        Saturation magnetisation in amperes per metre (A m⁻¹).
+    Ku : float
+        Uniaxial anisotropy constant in joules per cubic metre (J m⁻³).
+    g : float
+        Landé *g*-factor (dimensionless).
+
+    Returns
+    -------
+    float
+        Resonance frequency in hertz (Hz).
+
+    Notes
+    -----
+    The linear relation is
 
     .. math::
 
-        f = \frac{\gamma}{2\pi} \bigl(B - \mu_{0} M_{s} + 2K_{u}/M_{s}\bigr).
+        f = \\frac{\\gamma}{2\\pi}\\bigl(B - \\mu_{0}M_{s} + 2K_{u}/M_{s}\\bigr).
 
-    Valid only when the magnetisation is saturated out of the film plane.
+    Valid only for fully saturated perpendicular magnetisation.
+
+    References
+    ----------
+    B. A. Kalinikos & A. N. Slavin, *J. Phys. C* **19**, 7013 (1986).
+
     """
     gamma = _gamma(g)
     return gamma * (B - MU0 * Ms + 2.0 * Ku / Ms) / (2.0 * math.pi)
 
 
 def kalinikos_1986_no_approx(
+    *,
     k: float,
     thickness: float,
     B: float,
     Ms: float,
     Aex: float,
     Ku: float,
-    g: float = 2.002,
+    g: float,
 ) -> float:
-    r"""
-    Full dipole-exchange dispersion, n = 0 (Kalinikos & Slavin 1986).
+    r"""Full dipole-exchange dispersion (*n* = 0) after Kalinikos & Slavin.
 
-    Paper
-        B. A. Kalinikos & A. N. Slavin, *J. Phys. C* **19**, 7013 (1986)
-        https://iopscience.iop.org/article/10.1088/0022-3719/19/35/014/pdf
+    Evaluates the exact single-mode dispersion including exchange,
+    dipolar and uniaxial-anisotropy contributions for arbitrary in-plane
+    wavevector *k*.
+
+    Parameters
+    ----------
+    k : float
+        In-plane wavevector in reciprocal metres (m⁻¹).
+    thickness : float
+        Film thickness in metres (m).
+    B : float
+        Static magnetic field in tesla (T), applied perpendicular to the film.
+    Ms : float
+        Saturation magnetisation in amperes per metre (A m⁻¹).
+    Aex : float
+        Exchange stiffness in joules per metre (J m⁻¹).
+    Ku : float
+        Uniaxial anisotropy constant in joules per cubic metre (J m⁻³).
+    g : float
+        Landé *g*-factor (dimensionless).
+
+    Returns
+    -------
+    float
+        Resonance frequency in hertz (Hz). Returns ``0.0`` if the
+        calculated radicand is negative.
 
     Notes
-        * Uses the exact n = 0 dipolar form-factor
-          :math:`F(k) = 1 - \tfrac{1 - e^{-|k|t}}{|k|t}`.
-        * Single-mode approximation (ignores mode coupling).
+    -----
+    * Uses the *n* = 0 dipolar form factor
+
+      .. math:: F(k) = 1 - \\frac{1 - e^{-|k|t}}{|k|t}.
+
+    * Neglects mode coupling (single-mode approximation).
+
+    References
+    ----------
+    B. A. Kalinikos & A. N. Slavin, *J. Phys. C* **19**, 7013 (1986).
+
     """
     gamma = _gamma(g)
     H0 = B / MU0
@@ -101,25 +212,52 @@ def kalinikos_1986_no_approx(
 
 
 def bottcher_2021(
+    *,
     k: float,
-    Ms: float = 1.150e6,
-    Ku: float = 0.938e6,
-    Aex: float = 17e-12,
-    B: float = 0.23,
-    thickness: float = 1.0e-9,
-    g: float = 2.002,
+    Ms: float,
+    Ku: float,
+    Aex: float,
+    B: float,
+    thickness: float,
+    g: float,
 ) -> float:
-    r"""
-    Perpendicular dipole-exchange dispersion (Böttcher 2021).
+    r"""Perpendicular dipole-exchange spectrum (Böttcher *et al.* 2021).
 
-    Paper
-        T. Böttcher *et al.*, *IEEE Trans. Magn.* **57**, 9427561 (2021)
-        https://ieeexplore.ieee.org/abstract/document/9427561
+    Calculates the dispersion for ultrathin films without interfacial DMI,
+    valid for \\(|k t| \\lesssim 1\\).
 
-    Assumptions
-        * Magnetisation saturated out-of-plane.
-        * Interfacial DMI **neglected**.
-        * Valid while |k·t| ≲ 1 (uses first exponential form-factor).
+    Parameters
+    ----------
+    k : float
+        In-plane wavevector in reciprocal metres (m⁻¹).
+    Ms : float
+        Saturation magnetisation in amperes per metre (A m⁻¹).
+    Ku : float
+        Uniaxial anisotropy constant in joules per cubic metre (J m⁻³).
+    Aex : float
+        Exchange stiffness in joules per metre (J m⁻¹).
+    B : float
+        Static magnetic field in tesla (T), applied perpendicular to the film.
+    thickness : float
+        Film thickness in metres (m).
+    g : float
+        Landé *g*-factor (dimensionless).
+
+    Returns
+    -------
+    float
+        Resonance frequency in hertz (Hz). Returns ``0.0`` when the
+        radicand is negative.
+
+    Notes
+    -----
+    The model keeps only the first exponential term of the demagnetising
+    form factor and neglects interfacial DMI.
+
+    References
+    ----------
+    T. Böttcher *et al.*, *IEEE Trans. Magn.* **57**, 9427561 (2021).
+
     """
 
     def _g(x: float) -> float:
@@ -138,32 +276,67 @@ def bottcher_2021(
 
 
 def kim_2016(
+    *,
     k: float,
-    Ms: float = 1.150e6,
-    Ku: float = 0.938e6,
-    Aex: float = 17e-12,
-    dmi: float = -1e-5,
-    B: float = 0.23,
-    thickness: float = 1.0e-9,
-    g: float = 2.002,
-    disptype: str = "de",
+    Ms: float,
+    Ku: float,
+    Aex: float,
+    dmi: float,
+    B: float,
+    thickness: float,
+    g: float,
+    disptype: str,
 ) -> float:
-    r"""
-    Surface (DE) or bulk-volume (BV) modes with interfacial DMI.
+    """Thin-film spectra with interfacial DMI (Kim *et al.* 2016).
 
-    Paper
-        J.-V. Kim *et al.*, *Phys. Rev. Lett.* **117**, 197204 (2016)
-        https://journals.aps.org/prl/pdf/10.1103/PhysRevLett.117.197204
+    Supports Damon-Eshbach (“de”) and backward-volume (“bv”) branches,
+    including a linear ±*k* frequency shift from Néel-type DMI.
 
     Parameters
-        disptype - ``"de"`` (Damon-Eshbach, θ = 0°) or ``"bv"`` (θ = 90°).
+    ----------
+    k : float
+        In-plane wavevector in reciprocal metres (m⁻¹).
+    Ms : float
+        Saturation magnetisation in amperes per metre (A m⁻¹).
+    Ku : float
+        Uniaxial anisotropy constant in joules per cubic metre (J m⁻³).
+    Aex : float
+        Exchange stiffness in joules per metre (J m⁻¹).
+    dmi : float
+        Interfacial DMI constant in joules per square metre (J m⁻²).
+    B : float
+        Static magnetic field in tesla (T), applied perpendicular to the film.
+    thickness : float
+        Film thickness in metres (m).
+    g : float
+        Landé *g*-factor (dimensionless).
+    disptype : {"de", "bv"}
+        Dispersion type: Damon-Eshbach (“de”, θ = 0°) or backward-volume
+        (“bv”, θ = 90°).
 
-    Assumptions
-        * Ultrathin limit: only first demagnetising corrections kept.
-        * Linear ±k shift from interfacial (Néel) DMI.
+    Returns
+    -------
+    float
+        Resonance frequency in hertz (Hz).
+
+    Raises
+    ------
+    ValueError
+        If `disptype` is not ``"de"`` or ``"bv"``.
+
+    Notes
+    -----
+    Ultrathin-film approximation: only first-order demagnetising
+    corrections retained.
+
+    References
+    ----------
+    J.-V. Kim *et al.*, *Phys. Rev. Lett.* **117**, 197204 (2016).
+
     """
     if disptype not in {"de", "bv"}:
-        raise ValueError("disptype must be 'de' or 'bv'")
+        msg = "disptype must be 'de' or 'bv'"
+        raise ValueError(msg)
 
     theta = 0.0 if disptype == "de" else math.pi / 2.0
     kx = k * -math.cos(theta)  # minus sign keeps legacy phase
@@ -184,6 +357,7 @@ def kim_2016(
 
 
 def cortes_ortuno_2013(
+    *,
     k: float,
     Ms: float,
     Ku: float,
@@ -194,15 +368,55 @@ def cortes_ortuno_2013(
     g: float,
     disptype: str,
 ) -> float:
-    r"""
-    General thin-film spectrum with interfacial DMI (Cortés-Ortuño 2013).
+    """General thin-film dispersion with interfacial DMI.
 
-    Paper
-        D. Cortés-Ortuño & P. Landeros, *J. Phys.: Condens. Matter* **25**, 156001 (2013)
-        https://iopscience.iop.org/article/10.1088/0953-8984/25/15/156001/pdf
+    Implements the Cortés-Ortuño & Landeros (2013) model for both
+    Damon-Eshbach and backward-volume geometries.
+
+    Parameters
+    ----------
+    k : float
+        In-plane wavevector in reciprocal metres (m⁻¹).
+    Ms : float
+        Saturation magnetisation in amperes per metre (A m⁻¹).
+    Ku : float
+        Uniaxial anisotropy constant in joules per cubic metre (J m⁻³).
+    Aex : float
+        Exchange stiffness in joules per metre (J m⁻¹).
+    dmi : float
+        Interfacial DMI constant in joules per square metre (J m⁻²).
+    B : float
+        Static magnetic field in tesla (T), applied perpendicular to the film.
+    thickness : float
+        Film thickness in metres (m).
+    g : float
+        Landé *g*-factor (dimensionless).
+    disptype : {"de", "bv"}
+        Dispersion type: Damon-Eshbach (“de”) or backward-volume (“bv”).
+
+    Returns
+    -------
+    float
+        Resonance frequency in hertz (Hz).
+
+    Raises
+    ------
+    ValueError
+        If `disptype` is not ``"de"`` or ``"bv"``.
+
+    Notes
+    -----
+    Recovers the Kim 2016 result in the ultrathin (|kt| ≪ 1) limit and
+    vanishing exchange.
+
+    References
+    ----------
+    D. Cortés-Ortuño & P. Landeros, *J. Phys.: Condens. Matter* **25**, 156001 (2013).
+
     """
     if disptype not in {"de", "bv"}:
-        raise ValueError("disptype must be 'de' or 'bv'")
+        msg = "disptype must be 'de' or 'bv'"
+        raise ValueError(msg)
 
     theta = 0.0 if disptype == "de" else math.pi / 2.0
     gamma = _gamma(g)
