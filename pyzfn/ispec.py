@@ -29,17 +29,21 @@ def _plot_spectra(
     peaks: list[Peak],
 ) -> None:
     ax.plot(x, y)
-    for _, freq, amp in peaks:
+    for frequency, amplitude, _ in peaks:
         ax.text(
-            freq,
-            amp + 0.03 * float(np.max(y)),
-            f"{freq:.2f}",
+            frequency,
+            amplitude + 0.01 * np.max(y),
+            f"{frequency:.2f}",
             rotation=90,
             ha="center",
             va="bottom",
+            color="#ffb86c",
         )
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+    ax.set_ylabel("FFT Amplitude (arb. units)")
+    ax.set_xlabel("Frequency (GHz)")
+    ax.grid(which="both", linestyle="--", linewidth=0.5)
 
 
 def _plot_modes(
@@ -50,7 +54,6 @@ def _plot_modes(
 ) -> None:
     for ax in axes.flatten():
         ax.cla()
-        ax.set(xticks=[], yticks=[])
 
     extent = [
         0,
@@ -58,37 +61,86 @@ def _plot_modes(
         0,
         mode.shape[0] * dy * 1e9,
     ]
+    abs_arr = np.abs(mode[:, :, :])
+    arr_max = abs_arr.max()
+    alphas = abs_arr / arr_max
+    phase_arr = np.array(np.angle(mode[:, :, :]))
     for i in range(3):
-        abs_arr = np.abs(mode[:, :, i])
-        phase_arr = np.angle(mode[:, :, i])
         axes[0, i].imshow(
-            abs_arr,
+            abs_arr[:, :, i],
+            aspect="equal",
+            extent=extent,
             cmap="inferno",
             vmin=0,
-            vmax=float(abs_arr.max()),
-            extent=extent,
+            vmax=arr_max,
             interpolation="none",
-            aspect="equal",
         )
         axes[1, i].imshow(
-            phase_arr,
+            phase_arr[:, :, i],
             aspect="equal",
+            extent=extent,
             cmap="hsv",
             vmin=-np.pi,
             vmax=np.pi,
             interpolation="none",
-            extent=extent,
         )
         axes[2, i].imshow(
-            phase_arr,
+            phase_arr[:, :, i],
             aspect="equal",
-            alpha=abs_arr / abs_arr.max(),
+            extent=extent,
             cmap="hsv",
+            alpha=alphas[:, :, i],
             vmin=-np.pi,
             vmax=np.pi,
             interpolation="nearest",
-            extent=extent,
         )
+    fig = axes[0, 0].figure
+    cb_labels = [
+        r"Amplitude $|\tilde{m}|$",
+        r"Phase $\phi$ (rad)",
+        r"$|\tilde{m}| \times \phi$ (rad)",
+    ]
+
+    for idx, ax in enumerate(axes.flatten()):
+        row, col = divmod(idx, axes.shape[1])
+
+        # Axis labels
+        if row == axes.shape[0] - 1:
+            ax.set_xlabel("x (nm)")
+        if col == 0:
+            ax.set_ylabel("y (nm)")
+        else:
+            ax.set_yticks([])
+
+        if row < axes.shape[0] - 1:
+            ax.set_xticks([])
+
+        # Add colorbar to the last column
+        if col == axes.shape[1] - 1:
+            cax = ax.inset_axes([1.03, 0, 0.1, 1])
+            fig.colorbar(ax.get_images()[0], cax=cax)
+            cax.set_ylabel(cb_labels[row], rotation=270, labelpad=15)
+
+
+def _get_spectrum(
+    self: "Pyzfn",
+    *,
+    dset_str: str,
+    fmin: float,
+    fmax: float,
+    log: bool,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    x_arr = self.get_array(f"fft/{dset_str}/freqs")
+    y_arr = self.get_array(f"fft/{dset_str}/spec")
+    x = np.asarray(x_arr, dtype=np.float64)
+    y = np.asarray(y_arr, dtype=np.float64)
+    if log:
+        y = np.log(y)
+        y -= y.min()
+        y /= y.max()
+    x1 = np.abs(x - fmin).argmin()
+    x2 = np.abs(x - fmax).argmin()
+    return x[x1:x2], y[x1:x2]
 
 
 def inner_ispec(  # noqa: PLR0913
@@ -142,25 +194,19 @@ def inner_ispec(  # noqa: PLR0913
         msg = "dx and dy must be floats"
         raise TypeError(msg)
 
-    def get_spectrum() -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        x_arr = self.get_array(f"fft/{dset_str}/freqs")
-        y_arr = self.get_array(f"fft/{dset_str}/spec")[:, c]
-        x = np.asarray(x_arr, dtype=np.float64)
-        y = np.asarray(y_arr, dtype=np.float64)
-        if log:
-            y = np.log(y)
-            y -= y.min()
-            y /= y.max()
-        x1 = np.abs(x - fmin).argmin()
-        x2 = np.abs(x - fmax).argmin()
-        return x[x1:x2], y[x1:x2]
-
-    fig = plt.figure(constrained_layout=True, figsize=(15, 6))
-    gs = fig.add_gridspec(1, 2)
+    fig = plt.figure(figsize=(10, 5), constrained_layout=True)
+    gs = fig.add_gridspec(1, 2, width_ratios=[3, 5])
     ax_spec = fig.add_subplot(gs[0, 0])
-    x, y = get_spectrum()
-    peaks = find_peaks(x, y, thres=thres, min_dist=min_dist)
-    _plot_spectra(ax_spec, x, y, peaks)
+    frequencies, signal = _get_spectrum(
+        self,
+        dset_str=dset_str,
+        fmin=fmin,
+        fmax=fmax,
+        log=log,
+    )
+    signal = signal[:, c]
+    peaks = find_peaks(frequencies, signal, thres=thres, min_dist=min_dist)
+    _plot_spectra(ax_spec, frequencies, signal, peaks)
     axes_modes = cast("AxesArray", gs[0, 1].subgridspec(3, 3).subplots())
     vline = ax_spec.axvline((fmax + fmin) / 2, ls="--", lw=0.8, c="#ffb86c")
 
@@ -180,4 +226,10 @@ def inner_ispec(  # noqa: PLR0913
             fig.canvas.draw()
 
     fig.canvas.mpl_connect("button_press_event", onclick)
+    # Set initial mode plot to the highest peak
+    if peaks:
+        highest_peak = max(peaks, key=lambda p: p.amplitude)
+        vline.set_data([highest_peak.frequency, highest_peak.frequency], [0, 1])
+        mode = self.get_mode(dset_str, highest_peak.frequency)[z]
+        _plot_modes(axes_modes, mode, dx, dy)
     return onclick, fig, ax_spec, axes_modes
