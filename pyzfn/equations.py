@@ -1,4 +1,4 @@
-# flake8: noqa: N803, N806, PLR0913
+# ruff: noqa: N803, N806, PLR0913
 
 """Equations for ferromagnetic resonance and spin wave dispersion relations.
 

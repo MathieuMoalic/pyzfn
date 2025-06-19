@@ -1,4 +1,4 @@
-# flake8: noqa: PLR0913
+# ruff: noqa: PLR0913
 """Read, write, and inspect OOMMF OVF 2.0 files."""
 
 from __future__ import annotations

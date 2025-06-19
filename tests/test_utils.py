@@ -37,7 +37,7 @@ def test_make_cmap_end_points_and_shape() -> None:
     """Test that make_cmap returns a colormap with correct end points and shape."""
     cmap: mcolors.ListedColormap = utils.make_cmap(MIN, MAX)
     assert isinstance(cmap, mcolors.ListedColormap)
-    colours = np.asarray(cmap.colors)  # type: ignore[attr-defined]
+    colours = np.asarray(cmap.colors)
     # basic shape/dtype checks
     assert colours.shape == (256, 4)
     assert colours.dtype == float
@@ -52,7 +52,7 @@ def test_make_cmap_end_points_and_shape() -> None:
 def test_make_cmap_with_midpoint_and_transparency() -> None:
     """Test that make_cmap correctly handles a midpoint and transparency."""
     cmap = utils.make_cmap(MIN, MAX, MID, transparent_zero=True)
-    colours = np.asarray(cmap.colors)  # type: ignore[attr-defined]
+    colours = np.asarray(cmap.colors)
 
     # Index 127 (end of first half) must equal MID in **all four** channels
     np.testing.assert_allclose(colours[127], _rgba8_to_unit(MID), atol=1e-6)

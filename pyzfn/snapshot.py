@@ -1,4 +1,4 @@
-# flake8: noqa: PLR0913
+# ruff: noqa: PLR0913
 """Functions for visualizing and plotting snapshots of Pyzfn datasets."""
 
 from typing import TYPE_CHECKING
