@@ -8,7 +8,7 @@ This module provides:
 """
 
 import colorsys
-from typing import NamedTuple, TypeVar
+from typing import Literal, NamedTuple, TypeVar
 
 import matplotlib.colors as mcolors
 import numpy as np
@@ -130,6 +130,22 @@ class Peak(NamedTuple):
 Numeric = np.integer | np.floating
 
 
+# ───────────────────────────── helpers ──────────────────────────────
+def _validate_1d_same_shape(freq: NDArray, sig: NDArray) -> None:
+    if sig.ndim != 1 or freq.ndim != 1:
+        msg = "signal and frequencies must be 1-D"
+        raise ValueError(msg)
+    if sig.shape != freq.shape:
+        msg = "signal and frequencies must have the same shape"
+        raise ValueError(msg)
+
+
+def _numeric_threshold(sig: NDArray, threshold: float, n_peaks: int | None) -> float:
+    if n_peaks is not None:  # 'grab everything' mode
+        return sig.min() - np.finfo(sig.dtype).eps
+    return threshold * (sig.max() - sig.min()) + sig.min()
+
+
 def _handle_plateaus(dy: np.ndarray) -> np.ndarray:
     zeros = np.where(dy == 0)[0]
     if not len(zeros):
@@ -151,77 +167,98 @@ def _handle_plateaus(dy: np.ndarray) -> np.ndarray:
     return dy
 
 
-def find_peaks(
+def _detect_raw_peaks(sig: NDArray, thr: float) -> NDArray[np.int64]:
+    dy = _handle_plateaus(np.diff(sig))
+    return np.where(
+        (np.hstack([dy, 0.0]) < 0)  # falling edge
+        & (np.hstack([0.0, dy]) > 0)  # rising edge
+        & (sig > thr),  # above threshold
+    )[0]
+
+
+def _apply_min_dist(
+    peaks: NDArray[np.int64],
+    sig: NDArray,
+    min_dist: int,
+) -> NDArray[np.int64]:
+    if peaks.size <= 1 or min_dist <= 1:
+        return peaks
+    order = peaks[np.argsort(sig[peaks])][::-1]  # high → low
+    keep = np.ones(sig.size, dtype=bool)
+    keep[peaks] = False
+    for p in order:
+        if not keep[p]:
+            sl = slice(max(0, p - min_dist), p + min_dist + 1)
+            keep[sl] = True
+            keep[p] = False
+    return np.where(~keep)[0]
+
+
+def _prune_to_top_n(
+    peaks: NDArray[np.int64],
+    sig: NDArray,
+    n: int | None,
+) -> NDArray[np.int64]:
+    if n is None or peaks.size <= n:
+        return peaks
+    return peaks[np.argsort(sig[peaks])][-n:]  # largest amplitudes
+
+
+# ──────────────────────────── public API ────────────────────────────
+def find_peaks(  # noqa: PLR0913
     frequencies: NDArray[Numeric],
     signal: NDArray[Numeric],
-    thres: float = 0.3,
-    min_dist: int = 1,
     *,
-    thres_abs: bool = False,
+    threshold: float = 0.3,
+    min_dist: int = 1,
+    n_peaks: int | None = None,
+    sort_by: Literal["frequency", "amplitude"] = "frequency",
 ) -> list[Peak]:
-    """Find peaks in a 1D signal array.
+    """Detect peaks in a 1-D signal.
 
     Parameters
     ----------
-    frequencies : NDArray[Numeric]
-        Array of frequency values corresponding to the signal.
-    signal : NDArray[Numeric]
-        1D array of signal values.
-    thres : float, optional
-        Threshold for peak detection. If thres_abs is False, interpreted
-        as a fraction of the signal range.
-    min_dist : int, optional
-        Minimum distance (in samples) between peaks.
-    thres_abs : bool, optional
-        If True, threshold is interpreted as an absolute value.
+    frequencies, signal
+        1-D arrays of the same length.
+    threshold
+        Relative (0-1) or absolute value. Ignored when *n_peaks* is given.
+    min_dist
+        Minimum index distance between successive peaks.
+    n_peaks
+        If set, keep lowering the threshold until **≥ n_peaks** candidates exist,
+        then return the *n_peaks* highest-amplitude peaks (after *min_dist* pruning).
+    sort_by
+        Order result by ascending 'frequency' (default) or descending 'amplitude'.
 
     Returns
     -------
     list[Peak]
-        List of detected peaks as Peak namedtuples.
+        Each peak holds `(frequency, amplitude, idx)`.
 
     Raises
     ------
     ValueError
-        If input arrays do not have the same shape or are not 1D.
+        If the threshold is not in the range [0, 1] or a positive absolute value,
+        or if the input arrays are not 1-D or do not have the same shape.
 
     """
-    if signal.shape != frequencies.shape:
-        msg = "y and freq must have the same shape"
-        raise ValueError(msg)
-    if signal.ndim != 1 or frequencies.ndim != 1:
-        msg = "y and freq must be 1-dimensional arrays"
-        raise ValueError(msg)
-    if signal.size == 0 or frequencies.size == 0:
+    _validate_1d_same_shape(frequencies, signal)
+    if not frequencies.size or not signal.size:
         return []
-    if not thres_abs:
-        thres = float(thres * (np.max(signal) - np.min(signal)) + np.min(signal))
+    if threshold < 0 or threshold > 1:
+        msg = "threshold must be in the range [0, 1] or a positive absolute value"
+        raise ValueError(msg)
+    thr = _numeric_threshold(signal, threshold, n_peaks)
+    peaks = _detect_raw_peaks(signal, thr)
+    peaks = _apply_min_dist(peaks, signal, min_dist)
+    peaks = _prune_to_top_n(peaks, signal, n_peaks)
 
-    min_dist = int(min_dist)
-    dy = np.diff(signal)
-    dy = _handle_plateaus(dy)
-
-    peaks = np.where(
-        (np.hstack([dy, 0.0]) < 0.0)
-        & (np.hstack([0.0, dy]) > 0.0)
-        & (np.greater(signal, thres)),
-    )[0]
-
-    if peaks.size > 1 and min_dist > 1:
-        highest = peaks[np.argsort(signal[peaks])][::-1]
-        rem = np.ones(signal.size, dtype=bool)
-        rem[peaks] = False
-        for peak in highest:
-            if not rem[peak]:
-                sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
-                rem[sl] = True
-                rem[peak] = False
-        peaks = np.arange(signal.size)[~rem]
-
-    return [
-        Peak(frequency=float(frequencies[i]), amplitude=float(signal[i]), idx=i)
-        for i in peaks
-    ]
+    peaks_list = [Peak(float(frequencies[i]), float(signal[i]), int(i)) for i in peaks]
+    if sort_by == "amplitude":
+        peaks_list.sort(key=lambda p: p.amplitude, reverse=True)
+    else:  # 'frequency'
+        peaks_list.sort(key=lambda p: p.frequency)
+    return peaks_list
 
 
 BYTES_PER_KIB = 1024

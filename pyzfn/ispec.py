@@ -205,7 +205,7 @@ def inner_ispec(  # noqa: PLR0913
         log=log,
     )
     signal = signal[:, c]
-    peaks = find_peaks(frequencies, signal, thres=thres, min_dist=min_dist)
+    peaks = find_peaks(frequencies, signal, threshold=thres, min_dist=min_dist)
     _plot_spectrum(ax_spec, frequencies, signal, peaks)
     axes_modes = cast("AxesArray", gs[0, 1].subgridspec(3, 3).subplots())
     vline = ax_spec.axvline(fmin, ls="--", lw=0.8, c="#ffb86c")

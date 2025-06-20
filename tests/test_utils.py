@@ -154,43 +154,25 @@ def test_multiple_peaks() -> None:
     signal[50] = 1.0
     signal[80] = 0.8
 
-    peaks = find_peaks(freq, signal, thres=0.3, min_dist=10)
+    peaks = find_peaks(freq, signal, threshold=0.3, min_dist=10)
     peak_count = 3
     assert len(peaks) == peak_count
     idxs = sorted(p.idx for p in peaks)
     assert idxs == [20, 50, 80]
 
 
-def test_threshold_relative() -> None:
-    """Test finding peaks with a relative threshold."""
+def test_thresholdhold_relative() -> None:
+    """Test finding peaks with a relative thresholdhold."""
     freq = np.linspace(0, 10, 100)
     signal = np.zeros_like(freq)
     signal[30] = 0.2
     peak_idx = 70
     signal[peak_idx] = 0.9
 
-    # Use thres=0.5 relative => 0.5*(0.9-0) = 0.45, so only peak[peak_idx] passes
-    peaks = find_peaks(freq, signal, thres=0.5)
+    # Use threshold=0.5 relative => 0.5*(0.9-0) = 0.45, so only peak[peak_idx] passes
+    peaks = find_peaks(freq, signal, threshold=0.5)
     assert len(peaks) == 1
     assert peaks[0].idx == peak_idx
-
-
-def test_threshold_absolute() -> None:
-    """Test finding peaks with an absolute threshold."""
-    freq = np.linspace(0, 10, 100)
-    signal = np.zeros_like(freq)
-    signal[30] = 0.2
-    peak_idx = 70
-    signal[peak_idx] = 0.9
-
-    # Use thres_abs=True, thres=0.85 should pass only the second peak
-    peaks = find_peaks(freq, signal, thres=0.85, thres_abs=True)
-    assert len(peaks) == 1
-    assert peaks[0].idx == peak_idx
-
-    # Raise threshold higher: should exclude all
-    peaks = find_peaks(freq, signal, thres=1.0, thres_abs=True)
-    assert len(peaks) == 0
 
 
 def test_plateau_peak() -> None:
@@ -240,5 +222,22 @@ def test_invalid_ndim() -> None:
     """Test that find_peaks raises ValueError for non-1D inputs."""
     freq = np.ones((100, 2))
     signal = np.ones((100, 2))
-    with pytest.raises(ValueError, match="y and freq must be 1-dimensional arrays"):
+    with pytest.raises(ValueError, match="signal and frequencies must be 1-D"):
         find_peaks(freq, signal)
+
+
+def test_n_peak_mode() -> None:
+    """Test finding a specific number of peaks in a signal."""
+    freq = np.linspace(0, 10, 200)
+    sig = np.zeros_like(freq)
+    sig[[20, 60, 120, 160]] = [0.6, 1.5, 1.0, 0.9]
+    peaks = find_peaks(freq, sig, n_peaks=2, sort_by="amplitude")
+    assert sorted(p.amplitude for p in peaks) == [1.0, 1.5]
+
+
+def test_threshold_invalid() -> None:
+    """Test that find_peaks raises ValueError for invalid threshold."""
+    freq = np.linspace(0, 10, 100)
+    signal = np.zeros_like(freq)
+    with pytest.raises(ValueError, match="threshold must be in the range"):
+        find_peaks(freq, signal, threshold=2)
