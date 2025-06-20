@@ -52,7 +52,7 @@ def sim(base_sim: Pyzfn) -> Pyzfn:
 def test_inner_ispec_runs(sim: Pyzfn) -> None:
     """Test that ispec runs without raising exceptions and draws the plot."""
     # Should not raise any exceptions and should draw the plot
-    sim.ispec(dset_str="m", thres=0.05, fmin=0, fmax=30, log=False)
+    sim.ispec(dset_str="m", threshold=0.05, fmin=0, fmax=30, log=False)
 
 
 def test_inner_ispec_log_scale(sim: Pyzfn) -> None:

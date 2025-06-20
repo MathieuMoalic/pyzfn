@@ -68,7 +68,7 @@ def _plot_modes(
     for i in range(3):
         axes[0, i].imshow(
             abs_arr[:, :, i],
-            aspect="equal",
+            aspect="auto",
             extent=extent,
             cmap="inferno",
             vmin=0,
@@ -77,7 +77,7 @@ def _plot_modes(
         )
         axes[1, i].imshow(
             phase_arr[:, :, i],
-            aspect="equal",
+            aspect="auto",
             extent=extent,
             cmap="hsv",
             vmin=-np.pi,
@@ -86,7 +86,7 @@ def _plot_modes(
         )
         axes[2, i].imshow(
             phase_arr[:, :, i],
-            aspect="equal",
+            aspect="auto",
             extent=extent,
             cmap="hsv",
             alpha=alphas[:, :, i],
@@ -147,8 +147,9 @@ def inner_ispec(  # noqa: PLR0913
     self: "Pyzfn",
     dset_str: str = "m",
     *,
-    thres: float = 0.1,
+    threshold: float = 0.1,
     min_dist: int = 5,
+    n_peaks: int | None = None,
     fmin: float = 0,
     fmax: float | None = None,
     c: int = 0,
@@ -163,10 +164,15 @@ def inner_ispec(  # noqa: PLR0913
         The Pyzfn instance containing data and methods.
     dset_str : str, optional
         Dataset string identifier (default is "m").
-    thres : float, optional
+    threshold : float, optional
         Threshold for peak finding (default is 0.1).
     min_dist : int, optional
         Minimum distance between peaks (default is 5).
+    n_peaks : int, optional
+        If set, keep lowering the threshold until at least this many peaks are found,
+        then return the highest-amplitude peaks (default is None).
+        If None, all peaks above the threshold are returned.
+        If set, `threshold` is ignored.
     fmin : float, optional
         Minimum frequency to display (default is 0).
     fmax : float, optional
@@ -205,7 +211,13 @@ def inner_ispec(  # noqa: PLR0913
         log=log,
     )
     signal = signal[:, c]
-    peaks = find_peaks(frequencies, signal, threshold=thres, min_dist=min_dist)
+    peaks = find_peaks(
+        frequencies,
+        signal,
+        threshold=threshold,
+        min_dist=min_dist,
+        n_peaks=n_peaks,
+    )
     _plot_spectrum(ax_spec, frequencies, signal, peaks)
     axes_modes = cast("AxesArray", gs[0, 1].subgridspec(3, 3).subplots())
     vline = ax_spec.axvline(fmin, ls="--", lw=0.8, c="#ffb86c")
