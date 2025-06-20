@@ -1,10 +1,15 @@
 """Tests for the calc_modes functionality in the pyzfn package."""
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 from numpy import s_ as s
 
 from pyzfn import Pyzfn
+
+# The helpers live in the same module that defines `inner_calc_modes`
+from pyzfn.calc_modes import check_memory, estimate_peak_ram
 
 SHAPE = (64, 2, 1, 4, 3)  # Example shape for the dataset
 
@@ -119,3 +124,63 @@ def test_calc_modes_windowing_energy_change(sim: Pyzfn) -> None:
     spec_win = sim.get_array("fft/win_energy/sum")[:]
     spec_nowin = sim.get_array("fft/no_win_energy/sum")[:]
     assert not np.allclose(spec_win, spec_nowin)
+
+
+def test_estimate_peak_ram_formula() -> None:
+    """Verify that `_estimate_peak_ram` returns exactly the values.
+
+    implied by the documented formulae (float32 input, complex64
+    output, float32 spectrum).
+    """
+    in_shape = (16, 3, 2, 4, 1)  # (t, z, y, x, c)
+    est = estimate_peak_ram(in_shape)
+
+    # manual ground-truth
+    arr_bytes = int(np.prod(in_shape) * 4)  # float32
+    fft_len = in_shape[0] // 2 + 1
+    out_shape = (fft_len, *in_shape[1:])
+    out_bytes = int(np.prod(out_shape) * 8)  # complex64
+    spec_bytes = int(np.prod(out_shape) * 4)  # float32
+
+    assert est == {"arr": arr_bytes, "out": out_bytes, "spec": spec_bytes}, (
+        "Memory-estimate dictionary has unexpected values"
+    )
+
+
+def test_check_memory_allows_safe_usage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`_check_memory` should *not* raise when the estimated.
+
+    peak fits comfortably inside the allowed budget.
+    """
+    est = {"arr": 10_000, "out": 20_000, "spec": 5_000}  # 35 kB
+    peak = sum(est.values())  # 35 kB
+    # Pretend the machine has plenty of free RAM (10 x peak)
+    monkeypatch.setattr(
+        "pyzfn.calc_modes.psutil.virtual_memory",
+        lambda: SimpleNamespace(available=peak * 10),
+    )
+    # Should run silently
+    check_memory(est, ratio=0.8)
+
+
+def test_check_memory_raises_on_excess(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`_check_memory` should raise MemoryError when the estimate.
+
+    exceeds the safety-margin threshold.
+    """
+    est = {"arr": 1_000, "out": 1_000, "spec": 1_000}  # 3 kB
+    sum(est.values())  # 3 kB
+    # Fake a very low amount of free RAM (only 2 kB)
+    monkeypatch.setattr(
+        "pyzfn.calc_modes.psutil.virtual_memory",
+        lambda: SimpleNamespace(available=2_000),
+    )
+    with pytest.raises(MemoryError, match="FFT aborted"):
+        check_memory(est, ratio=0.9)
+
+
+def test_slices_with_too_many_dims(sim: Pyzfn) -> None:
+    """Test that `slices` raises ValueError when too many slices are provided."""
+    user_slices = [slice(None)] * 6  # More than 5 dimensions
+    with pytest.raises(ValueError, match="Too many slices provided"):
+        sim.calc_modes(slices=tuple(user_slices))

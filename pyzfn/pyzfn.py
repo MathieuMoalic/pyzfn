@@ -1,7 +1,7 @@
 """Custom Zarr Group subclass and utilities for structured simulation output management.
 
 This module provides the Pyzfn class, which extends Zarr Group functionality with
-convenient methods for hierarchical dataset handling, array creation, metadata access,
+convenient methods for hierarchical array handling, array creation, metadata access,
 and visual tree formatting for simulation outputs.
 """
 
@@ -38,7 +38,7 @@ SliceTuple = tuple[IndexLike, ...]
 class Pyzfn(Group):
     """A custom Zarr Group subclass for structured simulation output management.
 
-    Provides utility methods and properties for handling hierarchical datasets,
+    Provides utility methods and properties for handling hierarchical arrays,
     including array creation, metadata access, and visual tree formatting.
     """
 
@@ -68,7 +68,8 @@ class Pyzfn(Group):
                 msg = f"Path '{store}' is not a directory."
                 raise NotADirectoryError(msg)
         super().__init__(sync(AsyncGroup.open(store, zarr_format=zarr_format)))
-        self.clean_path: str = self.path.replace("file://", "")
+        path = Path(self.path.replace("file://", ""))
+        self.clean_path: str = str(path.absolute())
 
     calc_modes = inner_calc_modes
     ispec = inner_ispec
@@ -114,7 +115,7 @@ class Pyzfn(Group):
 
     @property
     def p(self) -> None:
-        """Print a visual tree representation of the Zarr group and its datasets.
+        """Print a visual tree representation of the Zarr group and its arrays.
 
         This method uses the rich library to display the hierarchical structure
         of the group, including subgroups and arrays, with their shapes and dtypes.
@@ -138,17 +139,17 @@ class Pyzfn(Group):
         Console().print(tree)
 
     def rm(self, name: str) -> None:
-        """Remove a dataset or group from the Zarr store.
+        """Remove a array or group from the Zarr store.
 
         Args:
-            name (str): Name of the dataset or group to remove.
+            name (str): Name of the array or group to remove.
 
         Raises:
             KeyError: If the specified name does not exist in the group.
 
         """
         if name not in self:
-            msg = f"Dataset '{name}' not found in group '{self.name}'."
+            msg = f"Array '{name}' not found in group '{self.name}'."
             raise KeyError(msg)
         del self[name]
 
@@ -160,14 +161,14 @@ class Pyzfn(Group):
         *,
         overwrite: bool = True,
     ) -> zarr.Array:
-        """Add a NumPy array to the Zarr group as a new dataset.
+        """Add a NumPy array to the Zarr group as a new array.
 
         Args:
-            name (str): Name of the dataset to create.
+            name (str): Name of the array to create.
             data (NDArray[T]): NumPy array to store.
             chunks (tuple[int, ...] | Literal["auto"], optional): Chunk shape or
                 "auto". Defaults to "auto".
-            overwrite (bool, optional): Overwrite existing dataset if it exists.
+            overwrite (bool, optional): Overwrite existing array if it exists.
                 Defaults to True.
 
         Returns:
@@ -186,10 +187,10 @@ class Pyzfn(Group):
         return dset
 
     def get_mode(self, dset_str: str, f: float) -> NDArray[np.complex64]:
-        """Retrieve a specific mode from the dataset.
+        """Retrieve a specific mode from the array.
 
         Args:
-            dset_str (str): Dataset name to retrieve modes from.
+            dset_str (str): Array name to retrieve modes from.
             f (float): Frequency to select the mode.
 
         Returns:
@@ -204,18 +205,18 @@ class Pyzfn(Group):
         """Retrieve a Zarr array by name.
 
         Args:
-            name (str): Name of the dataset to retrieve.
+            name (str): Name of the array to retrieve.
 
         Returns:
             zarr.Array: The requested Zarr array.
 
         Raises:
-            KeyError: If the dataset does not exist.
-            TypeError: If the dataset is not a Zarr array.
+            KeyError: If the array does not exist.
+            TypeError: If the array is not a Zarr array.
 
         """
         if name not in self:
-            msg = f"Dataset '{name}' not found in group '{self.name}'."
+            msg = f"Array '{name}' not found in '{self.clean_path}'"
             raise KeyError(msg)
         array = self[name]
         if not isinstance(array, zarr.Array):
@@ -228,10 +229,10 @@ class Pyzfn(Group):
         dset_in_str: str,
         slices: SliceTuple | slice | None = None,
     ) -> NDArray[T]:
-        """Retrieve a sliced view of a dataset as a NumPy array.
+        """Retrieve a sliced view of a array as a NumPy array.
 
         Args:
-            dset_in_str (str): Name of the dataset to retrieve from the Zarr group.
+            dset_in_str (str): Name of the array to retrieve from the Zarr group.
             slices (slice | tuple[slice, ...], optional): Slice or tuple of slices to
                 apply. Defaults to a full slice of 5 dimensions (i.e.,
                 `slice(None)` * 5). Tip: use np.s_ to create complex slices.

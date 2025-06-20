@@ -22,13 +22,13 @@ if TYPE_CHECKING:  # pragma: no cover
 AxesArray = NDArray[np.object_]
 
 
-def _plot_spectra(
+def _plot_spectrum(
     ax: Axes,
     x: NDArray[np.float64],
     y: NDArray[np.float64],
     peaks: list[Peak],
 ) -> None:
-    ax.plot(x, y)
+    ax.plot(x, y, lw=0.9)
     for frequency, amplitude, _ in peaks:
         ax.text(
             frequency,
@@ -127,7 +127,7 @@ def _get_spectrum(
     *,
     dset_str: str,
     fmin: float,
-    fmax: float,
+    fmax: float | None,
     log: bool,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     x_arr = self.get_array(f"fft/{dset_str}/freqs")
@@ -139,7 +139,7 @@ def _get_spectrum(
         y -= y.min()
         y /= y.max()
     x1 = np.abs(x - fmin).argmin()
-    x2 = np.abs(x - fmax).argmin()
+    x2 = np.abs(x - fmax).argmin() if fmax is not None else None
     return x[x1:x2], y[x1:x2]
 
 
@@ -150,7 +150,7 @@ def inner_ispec(  # noqa: PLR0913
     thres: float = 0.1,
     min_dist: int = 5,
     fmin: float = 0,
-    fmax: float = 40,
+    fmax: float | None = None,
     c: int = 0,
     log: bool = False,
     z: int = 0,
@@ -206,13 +206,13 @@ def inner_ispec(  # noqa: PLR0913
     )
     signal = signal[:, c]
     peaks = find_peaks(frequencies, signal, thres=thres, min_dist=min_dist)
-    _plot_spectra(ax_spec, frequencies, signal, peaks)
+    _plot_spectrum(ax_spec, frequencies, signal, peaks)
     axes_modes = cast("AxesArray", gs[0, 1].subgridspec(3, 3).subplots())
-    vline = ax_spec.axvline((fmax + fmin) / 2, ls="--", lw=0.8, c="#ffb86c")
+    vline = ax_spec.axvline(fmin, ls="--", lw=0.8, c="#ffb86c")
 
     def onclick(event: Event) -> None:
         if isinstance(event, MouseEvent) and event.inaxes == ax_spec:
-            f: float = (fmax + fmin) / 2
+            f: float = fmin
             if not isinstance(event.xdata, float):
                 return
             if event.button == MouseButton.RIGHT:
