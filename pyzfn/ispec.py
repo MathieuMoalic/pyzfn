@@ -101,6 +101,11 @@ def _plot_modes(
         r"$|\tilde{m}| \times \phi$ (rad)",
     ]
 
+    titles = [
+        "$m_x$",
+        "$m_y$",
+        "$m_z$",
+    ]
     for idx, ax in enumerate(axes.flatten()):
         row, col = divmod(idx, axes.shape[1])
 
@@ -121,6 +126,10 @@ def _plot_modes(
             fig.colorbar(ax.get_images()[0], cax=cax)
             cax.set_ylabel(cb_labels[row], rotation=270, labelpad=15)
 
+        # Set title for the first row
+        if row == 0:
+            ax.set_title(titles[col], fontsize=10)
+
 
 def _get_spectrum(
     self: "Pyzfn",
@@ -132,6 +141,7 @@ def _get_spectrum(
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     x_arr = self.get_array(f"fft/{dset_str}/freqs")
     y_arr = self.get_array(f"fft/{dset_str}/spec")
+    y_arr[0] = 1e-6  # Avoid division by zero in log scale
     x = np.asarray(x_arr, dtype=np.float64)
     y = np.asarray(y_arr, dtype=np.float64)
     if log:
