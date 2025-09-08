@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -45,10 +45,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Python Package New Version
-        uses: MathieuMoalic/action-python-package-new-version@v1.0.5
+        uses: MathieuMoalic/action-python-package-new-version@v3.0.6
                         
       - name: Install uv
         if: env.PUBLISHING == 'true'
