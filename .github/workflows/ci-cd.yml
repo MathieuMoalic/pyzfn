@@ -72,6 +72,8 @@ jobs:
     permissions:
       id-token: write
     if: ${{ always() && !cancelled() && needs.build.result == 'success' }}
+    environment:
+      name: pypi
     steps:
       - uses: actions/checkout@v4
 
