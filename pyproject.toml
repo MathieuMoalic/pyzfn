@@ -1,6 +1,6 @@
 [project]
 name = "pyzfn"
-version = "1.0.5"
+version = "1.0.6"
 description = "micromagnetic post processing library"
 authors = [
     { name = "Mathieu Moalic", email = "matmoa@amu.edu.pl" },
