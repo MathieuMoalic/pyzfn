@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -41,7 +41,7 @@ jobs:
       version:        ${{ steps.version_check.outputs.package_version }}
       package_name:   ${{ steps.version_check.outputs.package_name }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Check package version on all index
         id: version_check
@@ -52,7 +52,7 @@ jobs:
     needs: version-check
     if: ${{ needs.version-check.outputs.current_version_exists == 'false' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
@@ -75,7 +75,7 @@ jobs:
     environment:
       name: pypi
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Download distributions
         uses: actions/download-artifact@v6
